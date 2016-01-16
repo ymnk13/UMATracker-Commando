@@ -155,6 +155,7 @@ class VideoPlaybackWidget(QtWidgets.QWidget, Ui_VideoPlaybackWidget):
             self.playbackSlider.setSingleStep(self.fps)
             self.playbackSlider.setPageStep(self.fps)
             self.playbackSlider.setTickInterval(self.fps)
+
             # FIXME:おそらくFFMS2かVapourSynthのバグで，
             # 事前に映像をいくらか読んだあとにゼロフレームに
             # 戻さないと，映像がずれる（Macのみ）．
@@ -310,6 +311,9 @@ class VideoPlaybackWidget(QtWidgets.QWidget, Ui_VideoPlaybackWidget):
     def videoPlayback(self):
         if self.isOpened():
             nextFrame = self.getNextFramePos()
+            if nextFrame < 0:
+                self.stop()
+                return
             self.playbackSlider.setValue(nextFrame)
 
     @pyqtSlot(int)
