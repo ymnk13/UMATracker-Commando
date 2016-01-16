@@ -9,17 +9,17 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 class Ui_VideoPlaybackWidget(object):
-    def setupUi(self, VideoPlaybackWidgetBase):
-        VideoPlaybackWidgetBase.setObjectName("VideoPlaybackWidgetBase")
-        VideoPlaybackWidgetBase.resize(593, 100)
+    def setupUi(self, VideoPlaybackWidget):
+        VideoPlaybackWidget.setObjectName("VideoPlaybackWidgetBase")
+        VideoPlaybackWidget.resize(593, 100)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(VideoPlaybackWidgetBase.sizePolicy().hasHeightForWidth())
-        VideoPlaybackWidgetBase.setSizePolicy(sizePolicy)
-        self.verticalLayout = QtWidgets.QVBoxLayout(VideoPlaybackWidgetBase)
+        sizePolicy.setHeightForWidth(VideoPlaybackWidget.sizePolicy().hasHeightForWidth())
+        VideoPlaybackWidget.setSizePolicy(sizePolicy)
+        self.verticalLayout = QtWidgets.QVBoxLayout(VideoPlaybackWidget)
         self.verticalLayout.setObjectName("verticalLayout")
-        self.frame = QtWidgets.QFrame(VideoPlaybackWidgetBase)
+        self.frame = QtWidgets.QFrame(VideoPlaybackWidget)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -116,11 +116,11 @@ class Ui_VideoPlaybackWidget(object):
         self.horizontalLayout_2.addWidget(self.playbackSlider)
         self.verticalLayout.addWidget(self.frame)
 
-        self.retranslateUi(VideoPlaybackWidgetBase)
-        QtCore.QMetaObject.connectSlotsByName(VideoPlaybackWidgetBase)
+        self.retranslateUi(VideoPlaybackWidget)
+        QtCore.QMetaObject.connectSlotsByName(VideoPlaybackWidget)
 
-    def retranslateUi(self, VideoPlaybackWidgetBase):
+    def retranslateUi(self, VideoPlaybackWidget):
         _translate = QtCore.QCoreApplication.translate
-        VideoPlaybackWidgetBase.setWindowTitle(_translate("VideoPlaybackWidgetBase", "Form"))
-        self.timeLabel.setText(_translate("VideoPlaybackWidgetBase", "00:00:00"))
+        VideoPlaybackWidget.setWindowTitle(_translate("VideoPlaybackWidget", "Form"))
+        self.timeLabel.setText(_translate("VideoPlaybackWidget", "00:00:00"))
 

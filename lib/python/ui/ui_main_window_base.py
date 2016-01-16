@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file '.\ui_main_window_base.ui'
+# Form implementation generated from reading ui file 'ui_main_window_base.ui'
 #
-# Created by: PyQt5 UI code generator 5.5
+# Created by: PyQt5 UI code generator 5.4.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -28,9 +28,12 @@ class Ui_MainWindowBase(object):
         self.verticalLayout.setObjectName("verticalLayout")
         self.inputGraphicsView = OverlaidGraphicsView(self.groupBox)
         self.inputGraphicsView.setAcceptDrops(False)
-        self.inputGraphicsView.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.inputGraphicsView.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.inputGraphicsView.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        self.inputGraphicsView.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
         self.inputGraphicsView.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustIgnored)
+        self.inputGraphicsView.setDragMode(QtWidgets.QGraphicsView.ScrollHandDrag)
+        self.inputGraphicsView.setTransformationAnchor(QtWidgets.QGraphicsView.AnchorUnderMouse)
+        self.inputGraphicsView.setResizeAnchor(QtWidgets.QGraphicsView.AnchorUnderMouse)
         self.inputGraphicsView.setObjectName("inputGraphicsView")
         self.verticalLayout.addWidget(self.inputGraphicsView)
         self.videoPlaybackWidget = VideoPlaybackWidget(self.groupBox)
@@ -110,7 +113,7 @@ class Ui_MainWindowBase(object):
         self.horizontalLayout.addWidget(self.groupBox_2)
         MainWindowBase.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindowBase)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 902, 21))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 902, 22))
         self.menubar.setObjectName("menubar")
         self.menuFile = QtWidgets.QMenu(self.menubar)
         self.menuFile.setObjectName("menuFile")
