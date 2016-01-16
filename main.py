@@ -76,6 +76,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         self.colors = []
 
         self.viewScaleRate = 1.0
+        self.lastViewScaleRate = 1.0
         self.moveSceneRegionFlag = False
         self.moveSceneRegion = QtCore.QRect(0,0,960,540)        
         self.frameWidth = 30*5
@@ -100,7 +101,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         self.inputGraphicsView.keyPressEvent = self.inputGraphicsViewKeyPressEvent
         self.inputGraphicsView.keyReleaseEvent = self.inputGraphicsViewKeyReleaseEvent
         self.drawing = False
-
+        self.setCursor(QtCore.Qt.ArrowCursor)
         
 
         """
@@ -114,6 +115,13 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         """
 
         self.processDropedFile("/Users/ymnk/temp/Dast/2016/01/hoge.avi")
+        self.inputGraphicsView.setResizeAnchor(QGraphicsView.AnchorUnderMouse)#QGraphicsView.NoAnchor)
+        self.inputGraphicsView.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
+        self.inputGraphicsView.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        self.inputGraphicsView.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        #self.inputGraphicsView.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+        self.inputGraphicsView.setDragMode(QGraphicsView.ScrollHandDrag)
+        #self.inputGraphicsView.translate(500,0);
     def inputGraphicsViewKeyReleaseEvent(self,event):
         key = event.key()
         if key == QtCore.Qt.Key_Control:
@@ -132,12 +140,16 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
             elif key == QtCore.Qt.Key_Left:
                 pass
             elif key == QtCore.Qt.Key_Down:
-                self.viewScaleRate -= 0.01
+                self.viewScaleRate -= 1
                 if self.viewScaleRate <= 0:
-                    self.viewScaleRate = 1
+                    self.viewScaleRate = 5
                     self.graphicsViewResized()
                     return
                 self.setScale(self.viewScaleRate,mousePosition)
+            elif key == QtCore.Qt.Key_Up:
+                self.viewScaleRate += 1
+                self.setScale(self.viewScaleRate,mousePosition)
+                
             elif key == QtCore.Qt.Key_Backspace:
                 # Delete Last Line
                 self.handInputSystem.deleteLastInputLine()
@@ -183,9 +195,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
                 if frameNo < 0:
                     frameNo = 0
                 self.videoPlaybackWidget.moveToFrame(frameNo)
-            elif key == QtCore.Qt.Key_Up:
-                self.viewScaleRate += 0.01
-                self.setScale(self.viewScaleRate,mousePosition)
+
             elif key == QtCore.Qt.Key_R:
                 self.graphicsViewResized()
             elif key == QtCore.Qt.Key_Control:
@@ -227,21 +237,29 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
                 self.handInputSystem.save("a.csv")
 
     def setScale(self,viewScaleRate,mousePosition):
+        viewScaleRate *= 0.1
         sceneRect = self.inputGraphicsView.sceneRect()
         scene = self.inputGraphicsView.scene()
         sceneRect = scene.sceneRect()
         posXY = sceneRect.bottomRight()
         x,y = posXY.x(),posXY.y()
         wX,wY = int(x/(1.0*viewScaleRate)),int(y/(1.0*viewScaleRate))
+        
         wX_half,wY_half = int(wX*0.5),int(wY*0.5)
         mouseX,mouseY = mousePosition.x(),mousePosition.y()
         viewRect = QtCore.QRect(0,0,wX_half,wY_half)
-        
+        print(viewScaleRate,posXY,mouseX,mouseY)
         viewRect.moveCenter(QPoint(mouseX,mouseY))
+        
         self.moveSceneRegion = viewRect
-        self.inputGraphicsView.fitInView(QRectF(viewRect),QtCore.Qt.KeepAspectRatio)
-        self.inputGraphicsView.viewport().update()
-        #self.updateInputGraphicsView()
+        self.inputGraphicsView.scale(1/self.lastViewScaleRate,1/self.lastViewScaleRate)
+        self.inputGraphicsView.scale(viewScaleRate,viewScaleRate)
+        self.lastViewScaleRate = viewScaleRate
+        self.inputGraphicsView.translate(mouseX,mouseY)
+   
+        self.inputGraphicsView.fitInView(QRectF(viewRect),QtCore.Qt.KeepAspectRatioByExpanding)#KeepAspectRatio)
+        #self.inputGraphicsView.viewport().update()
+        ###self.updateInputGraphicsView()
 
 
     def overlayCheckBoxStateChanged(self, s):
@@ -347,9 +365,12 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
 
 
     def inputGraphicsViewMousePressEvent(self, event):
+        
         if event.modifiers() == QtCore.Qt.ShiftModifier:
             # Comment out to permit the view for sending the event to the child scene.
             QGraphicsView.mousePressEvent(self.inputGraphicsView, event)
+        #elif event.button() & QtCore.Qt.RightButton:
+        #QGraphicsView.mousePressEvent(self.inputGraphicsView, event)
         else:
             if event.button() & QtCore.Qt.RightButton:
                 self.drawing = False
@@ -394,6 +415,8 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
             return
         if self.moveSceneRegionFlag == True:
             self.moveSceneRegionFlag = False
+
+        self.setCursor(QtCore.Qt.ArrowCursor)
         self.handInputSystem.inputMouseReleaseEvent()
         self.inputGraphicsView.viewport().update()
         
@@ -487,7 +510,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         self.inputScene.addItem(self.inputPixmapItem)
 
         self.inputGraphicsView.viewport().update()
-        #self.graphicsViewResized()
+        self.graphicsViewResized()
 
         
 
@@ -500,6 +523,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
     def graphicsViewResized(self, event=None):
         #print("resize")
         #print(self.inputScene)
+        self.viewScaleRate = 5
         self.inputGraphicsView.fitInView(QtCore.QRectF(self.inputPixmap.rect()), QtCore.Qt.KeepAspectRatio)
         self.moveSceneRegion = QtCore.QRectF(self.inputPixmap.rect())
 
