@@ -83,7 +83,6 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         self.groupBox_2.hide()
         
         self.processDropedFile("/Users/ymnk/temp/Dast/2016/01/hoge.avi")
-        #self.processDropedFile("/Users/ymnk/Dropbox/IKA/island/000161000K.mp4")
         #self.processDropedFile("/Users/ymnk/test.csv")
         self.inputGraphicsView.viewport().setCursor(QtCore.Qt.ArrowCursor)
         #
