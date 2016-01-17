@@ -38,6 +38,7 @@ from lib.python.ui.ui_main_window_base import Ui_MainWindowBase
 
 # from lib.python.ui.tracking_path import TrackingPath
 from lib.python.ui.tracking_path_group import TrackingPathGroup
+from lib.python.ui.hand_input_system import HandInputSystem
 
 # Log file setting.
 # import logging
@@ -63,6 +64,14 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
 
         self.df = None
         self.trackingPathGroup = None
+        self.drawingFlag = False
+        self.handInputSystem = None
+        self.handInputSystem = HandInputSystem()
+        self.handInputSystem.setRect(self.inputScene.sceneRect())
+        self.inputScene.addItem(self.handInputSystem)
+        self.handInputSystem.addNewDataFrame()
+        self.currentFrameNo = 0
+            
         self.colors = []
 
         self.circleCheckBox.stateChanged.connect(self.polyLineCheckBoxStateChanged)
@@ -74,9 +83,11 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         self.groupBox_2.hide()
         
         self.processDropedFile("/Users/ymnk/temp/Dast/2016/01/hoge.avi")
+        #self.processDropedFile("/Users/ymnk/Dropbox/IKA/island/000161000K.mp4")
+        #self.processDropedFile("/Users/ymnk/test.csv")
         self.inputGraphicsView.viewport().setCursor(QtCore.Qt.ArrowCursor)
         #
-
+        
     def overlayCheckBoxStateChanged(self, s):
         if self.overlayCheckBox.isChecked():
             self.frameBufferItemGroup.show()
@@ -171,7 +182,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         self.inputGraphicsView.keyPressEvent = self.inputGraphicsViewKeyPressEvent
         self.inputGraphicsView.keyReleaseEvent = self.inputGraphicsViewKeyReleaseEvent
         self.inputGraphicsView.wheelEvent = self.inputGraphicsViewwheelEvent
-        self.inputGraphicsView.focusInEvent = self.inputGraphicsViewfocusInEvent
+        #self.inputGraphicsView.focusInEvent = self.inputGraphicsViewfocusInEvent
         self.inputGraphicsView.viewport().installEventFilter(self)
 
         self.inputGraphicsView.setMouseTracking(True)
@@ -181,14 +192,32 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         #
         QGraphicsView.focusInEvent(self.inputGraphicsView, event)
     def inputGraphicsViewMousePressEvent(self, event):
-        # Comment out to permit the view for sending the event to the child scene.
-        QGraphicsView.mousePressEvent(self.inputGraphicsView, event)
-
+        if event.modifiers() == QtCore.Qt.ShiftModifier:
+            # Comment out to permit the view for sending the event to the child scene.
+            QGraphicsView.mousePressEvent(self.inputGraphicsView, event)
+        else:
+            self.drawingFlag = True
+            if not self.videoPlaybackWidget.isPlaying():
+                self.videoPlaybackWidget.playButtonClicked()
+            
     def inputGraphicsViewMouseMoveEvent(self, event):
-        # Comment out to permit the view for sending the event to the child scene.
-        QGraphicsView.mouseMoveEvent(self.inputGraphicsView, event)
-
+        if event.modifiers() == QtCore.Qt.ShiftModifier:
+            # Comment out to permit the view for sending the event to the child scene.
+            QGraphicsView.mouseMoveEvent(self.inputGraphicsView, event)
+        elif self.drawingFlag == True:
+            pass
+            #self.videoPlaybackWidget.moveNextButtonClicked()
+        #self.handInputSystem.inputMouseMoveEvent(mousePosition,self.currentFrameNo)
+        #print(self.currentFrameNo)
+        #self.positionStack.append(mousePosition)
+        #self.handInputSystem.inputMouseMoveEvent(mousePosition)
+        
     def inputGraphicsViewMouseReleaseEvent(self, event):
+        if self.drawingFlag == True:
+            self.drawingFlag = False
+            self.videoPlaybackWidget.playButtonClicked()
+        self.handInputSystem.inputMouseReleaseEvent()
+
         # Comment out to permit the view for sending the event to the child scene.
         QGraphicsView.mouseReleaseEvent(self.inputGraphicsView, event)
         self.inputGraphicsView.viewport().setCursor(QtCore.Qt.ArrowCursor)
@@ -210,8 +239,11 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
                 self.inputGraphicsViewScaleUp()
                 pass
             elif key == QtCore.Qt.Key_R:
-                pass
-
+                self.graphicsViewResized()
+            elif key == QtCore.Qt.Key_P:
+                self.handInputSystem.nextDataFrame()
+            elif key == QtCore.Qt.Key_O:
+                self.handInputSystem.previousDataFrame()
         QGraphicsView.keyPressEvent(self.inputGraphicsView, event)
         
     def inputGraphicsViewKeyReleaseEvent(self,event):
@@ -285,6 +317,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         if len(filePath) is not 0:
             self.df = pd.read_csv(filePath, index_col=0)
 
+            """
             if self.trackingPathGroup is not None:
                 self.inputScene.removeItem(self.trackingPathGroup)
 
@@ -293,6 +326,9 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
             self.inputScene.addItem(self.trackingPathGroup)
 
             self.trackingPathGroup.setDataFrame(self.df)
+            """
+            ### 
+            
 
             self.evaluate()
 
@@ -352,9 +388,21 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         if self.frameBuffer.qsize() > 10:
             item = self.frameBuffer.get()
             self.frameBufferItemGroup.removeFromGroup(item)
-
+        """
         if self.trackingPathGroup is not None:
             self.trackingPathGroup.setPoints(self.currentFrameNo)
+        """
+
+        if self.handInputSystem is not None:
+            self.handInputSystem.setPoints(self.currentFrameNo)
+            if self.drawingFlag is True:
+                mousePosition = QCursor().pos()
+                mousePosition = self.inputGraphicsView.mapFromGlobal(mousePosition)
+                mousePosition = self.inputGraphicsView.mapToScene(mousePosition)
+                pos = [mousePosition.x(),mousePosition.y()]
+                self.handInputSystem.appendPosition(pos,self.currentFrameNo)
+        
+
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
