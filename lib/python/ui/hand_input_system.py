@@ -32,6 +32,7 @@ class HandInputSystem(QGraphicsObject):
         self.currentFrameNo = 0
         self.itemList = []
         self.drawItemFlag = True
+        
         """
         df = pd.DataFrame([[100,200]],columns = ["x0","y0"],index = [10])
         self.df = df.combine_first(self.df)
@@ -56,6 +57,7 @@ class HandInputSystem(QGraphicsObject):
         #self.df.concat([[100,100],["x0","y0"]])
         #data = data.append(pd.dataFrame([1,2,3,4,5],columns=["A","B","C","D","E"],index=data[-1:].index+1))
         self.positionStack = {}
+    
 
     def inputMouseMoveEvent(self,mousePosition,currentFrameNo):
         mapper = self.generateIndexMapper(self.editingNo)
@@ -147,7 +149,7 @@ class HandInputSystem(QGraphicsObject):
         pos = self.currentFrameNo - min_value
         
         for i, item in enumerate(self.itemList):
-            mapper = self.generateIndexMapper(self.editingNo)
+            mapper = self.generateIndexMapper(i)
             array = self.df.loc[min_value:max_value, (mapper['x'],mapper['y'])].as_matrix()
             if len(array) is 0:
                 continue
@@ -157,21 +159,32 @@ class HandInputSystem(QGraphicsObject):
                 flags[pos] = True
 
             item.setPoints(array, flags)
-            
-        
 
     def nextDataFrame(self):
+        print("NextDataFrame")
         if self.editingNo <= self.dataFrameNo-1:
             self.editingNo+=1
         else:
             self.addNewDataFrame()
             self.editingNo+=1
-        print(self.df,self.editingNo)
+        self.setEditingLastValidFrameNo()
         
+    def setEditingLastValidFrameNo(self):
+        #
+        mapper = self.generateIndexMapper(self.editingNo)
+        firstValidIndex = self.df[mapper['x']].last_valid_index()
+        if firstValidIndex is None:
+            firstValidIndex = 0
+        self.lastInputedFrameIndex[self.editingNo] = firstValidIndex
+        
+    def getLastInputedFrameIndex(self):
+        return self.lastInputedFrameIndex[self.editingNo]
+
     def previousDataFrame(self):
         if self.editingNo > 0:
             self.editingNo-=1
-        print(self.df,self.editingNo)
+        #print(self.df,self.editingNo)
+        self.setEditingLastValidFrameNo()
 
     def addNewDataFrame(self):
         workingNo = self.dataFrameNo+1
@@ -183,16 +196,20 @@ class HandInputSystem(QGraphicsObject):
 
         #
         scene = self.scene()
+        """
         if scene is not None:
             for item in self.itemList:
                 scene.removeItem(item)
                 del item
         self.itemList.clear()
-
+        """
         rgb = (255,0,0)
+        rgb = np.random.randint(0, 255, (1, 3)).tolist()[0]
         trackingPath = TrackingPath(self)
         trackingPath.setRect(scene.sceneRect())
         trackingPath.setColor(rgb)
+        trackingPath.setLineWidth(14)
+        #trackingPath.setRadius(10)
         #trackingPath.itemSelected.connect(self.itemSelected)
         
         self.itemList.append(trackingPath)
@@ -206,8 +223,7 @@ class HandInputSystem(QGraphicsObject):
 
     def generateIndexMapper(self,dataNumber):
         dataIndex = dataNumber
-        indexMapper = {'x':'x{0}'.format(dataIndex),
-                       'y':'y{0}'.format(dataIndex),
+        indexMapper = {'x':'x{0}'.format(dataIndex),'y':'y{0}'.format(dataIndex),
         }
         """
                        'VX0':'VX0_{0}'.format(dataIndex), #major
@@ -217,12 +233,51 @@ class HandInputSystem(QGraphicsObject):
                        'depth':'depth_{0}'.format(dataIndex)}
         """
         return indexMapper
+
+    def saveCSV(self,filePath):
+        df = self.df.copy()
+        N = len(self.generateIndexMapper(0).keys())
+        col_n = df.as_matrix().shape[1]/N
+        col_names = np.array([('x{0}'.format(i),
+                               'y{0}'.format(i)) for i in range(int(round(col_n)))]).flatten()
+        df.columns = pd.Index(col_names)
+        df.to_csv(filePath)
+    def setDataFrame(self,df):
+        mapper = self.generateIndexMapper(0)
+        columnNum = len(mapper.values())
+        shape = df.shape
+        self.dataFrameNo = int(shape[1]/columnNum)-1
+        self.editingNo = 0
+        self.df = df
+        self.setEditingLastValidFrameNo()
+
+        scene = self.scene()
+        
+        if scene is not None:
+            for item in self.itemList:
+                scene.removeItem(item)
+                del item
+        self.itemList.clear()
+
+        for i in range(self.dataFrameNo+1):
+            print(i)
+            rgb = np.random.randint(0, 255, (1, 3)).tolist()[0]
+            trackingPath = TrackingPath(self)
+            trackingPath.setRect(scene.sceneRect())
+            trackingPath.setColor(rgb)
+            trackingPath.setLineWidth(14)
+            #trackingPath.setRadius(10)
+            #trackingPath.itemSelected.connect(self.itemSelected)
+            self.itemList.append(trackingPath)
+
+        
     def setRect(self, rect):
         self.rect = rect
     def boundingRect(self):
         return self.rect
     def paint(self, painter, option, widget):
         pass
+        
     
 
 

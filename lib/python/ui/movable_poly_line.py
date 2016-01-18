@@ -129,7 +129,7 @@ class MovablePolyLine(QGraphicsObject):
             painter.save()
 
             pen = QPen(self.color)
-            pen.setWidth(1)
+            pen.setWidth(self.getLineWidth())
 
             painter.setPen(pen)
             qPoints = [QPointF(*p.tolist()) for p in self.points]

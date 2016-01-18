@@ -82,8 +82,8 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         self.frameNoSpinBox.valueChanged.connect(self.frameNoSpinBoxValueChanged)
         self.groupBox_2.hide()
         
-        self.processDropedFile("/Users/ymnk/temp/Dast/2016/01/hoge.avi")
-        #self.processDropedFile("/Users/ymnk/test.csv")
+        
+        self.processDropedFile("./a.csv")
         self.inputGraphicsView.viewport().setCursor(QtCore.Qt.ArrowCursor)
         #
         
@@ -174,7 +174,6 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         self.inputPixmapItem = QGraphicsPixmapItem(self.inputPixmap)
         self.inputScene.addItem(self.inputPixmapItem)
 
-        self.rubberBand = QtWidgets.QRubberBand(QtWidgets.QRubberBand.Rectangle, self.inputGraphicsView)
         self.inputGraphicsView.mousePressEvent = self.inputGraphicsViewMousePressEvent
         self.inputGraphicsView.mouseMoveEvent = self.inputGraphicsViewMouseMoveEvent
         self.inputGraphicsView.mouseReleaseEvent = self.inputGraphicsViewMouseReleaseEvent
@@ -216,7 +215,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
             self.drawingFlag = False
             self.videoPlaybackWidget.playButtonClicked()
         self.handInputSystem.inputMouseReleaseEvent()
-
+        self.handInputSystem.setPoints()
         # Comment out to permit the view for sending the event to the child scene.
         QGraphicsView.mouseReleaseEvent(self.inputGraphicsView, event)
         self.inputGraphicsView.viewport().setCursor(QtCore.Qt.ArrowCursor)
@@ -243,6 +242,11 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
                 self.handInputSystem.nextDataFrame()
             elif key == QtCore.Qt.Key_O:
                 self.handInputSystem.previousDataFrame()
+            elif key == QtCore.Qt.Key_J:
+                frameNo = self.handInputSystem.getLastInputedFrameIndex()
+                self.videoPlaybackWidget.moveToFrame(frameNo)
+            elif key == QtCore.Qt.Key_S:
+                self.handInputSystem.saveCSV("./a.csv")
         QGraphicsView.keyPressEvent(self.inputGraphicsView, event)
         
     def inputGraphicsViewKeyReleaseEvent(self,event):
@@ -315,17 +319,13 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
 
         if len(filePath) is not 0:
             self.df = pd.read_csv(filePath, index_col=0)
-
-            """
-            if self.trackingPathGroup is not None:
-                self.inputScene.removeItem(self.trackingPathGroup)
-
-            self.trackingPathGroup = TrackingPathGroup()
-            self.trackingPathGroup.setRect(self.inputScene.sceneRect())
-            self.inputScene.addItem(self.trackingPathGroup)
-
-            self.trackingPathGroup.setDataFrame(self.df)
-            """
+            if self.handInputSystem is not None:
+                self.inputScene.removeItem(self.handInputSystem)
+            self.handInputSystem = HandInputSystem()
+            self.handInputSystem.setRect(self.inputScene.sceneRect())
+            self.inputScene.addItem(self.handInputSystem)
+            self.handInputSystem.setDataFrame(self.df)
+            self.handInputSystem.setPoints()
             ### 
             
 
@@ -337,12 +337,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
 
             if len(filePath) is not 0:
                 logger.debug("Saving CSV file: {0}".format(filePath))
-                df = self.df.copy()
-                col_n = df.as_matrix().shape[1]/2
-
-                col_names = np.array([('x{0}'.format(i), 'y{0}'.format(i)) for i in range(int(round(col_n)))]).flatten()
-                df.columns = pd.Index(col_names)
-                df.to_csv(filePath)
+                self.handInputSystem.saveCSV(filePath)
 
     def updateInputGraphicsView(self):
         # print("update")
