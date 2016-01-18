@@ -32,7 +32,8 @@ class HandInputSystem(QGraphicsObject):
         self.currentFrameNo = 0
         self.itemList = []
         self.drawItemFlag = True
-        
+        self.selectedItemList = []
+        self.overlayFrameNo = 1
         """
         df = pd.DataFrame([[100,200]],columns = ["x0","y0"],index = [10])
         self.df = df.combine_first(self.df)
@@ -143,7 +144,7 @@ class HandInputSystem(QGraphicsObject):
     def setPoints(self,frameNo = None):
         if frameNo is not None:
             self.currentFrameNo = frameNo
-        self.overlayFrameNo = 30
+        
         min_value = max(self.currentFrameNo - self.overlayFrameNo, 0)
         max_value = self.currentFrameNo + self.overlayFrameNo
         pos = self.currentFrameNo - min_value
@@ -210,11 +211,8 @@ class HandInputSystem(QGraphicsObject):
         trackingPath.setColor(rgb)
         trackingPath.setLineWidth(14)
         #trackingPath.setRadius(10)
-        #trackingPath.itemSelected.connect(self.itemSelected)
-        
+        trackingPath.itemSelected.connect(self.itemSelected)
         self.itemList.append(trackingPath)
-
-
 
     def appendPosition(self,mousePosition,frameNo = None):
         if frameNo is not None:
@@ -240,8 +238,9 @@ class HandInputSystem(QGraphicsObject):
         col_n = df.as_matrix().shape[1]/N
         col_names = np.array([('x{0}'.format(i),
                                'y{0}'.format(i)) for i in range(int(round(col_n)))]).flatten()
-        df.columns = pd.Index(col_names)
+        #df.columns = pd.Index(col_names)
         df.to_csv(filePath)
+
     def setDataFrame(self,df):
         mapper = self.generateIndexMapper(0)
         columnNum = len(mapper.values())
@@ -267,10 +266,75 @@ class HandInputSystem(QGraphicsObject):
             trackingPath.setColor(rgb)
             trackingPath.setLineWidth(14)
             #trackingPath.setRadius(10)
-            #trackingPath.itemSelected.connect(self.itemSelected)
+            trackingPath.itemSelected.connect(self.itemSelected)
             self.itemList.append(trackingPath)
+    @pyqtSlot(object)
+    def itemSelected(self, item):
+        print("B")
+        if item.selected:
+            self.selectedItemList.append(item)
+            if len(self.selectedItemList)>2:
+                removedItem = self.selectedItemList.pop(0)
+                removedItem.selected = False
+                removedItem.itemType = QGraphicsEllipseItem
+                removedItem.setPoints()
+        else:
+            try:
+                self.selectedItemList.remove(item)
+            except ValueError:
+                pass
 
+    def contextMenuEvent(self, event):
+        if len(self.selectedItemList) == 2:
+            widget = self.parentWidget()
+            menu = QMenu(widget)
+
+            swapAction = QAction("Swap", widget)
+            swapAction.triggered.connect(self.swap)
+            menu.addAction(swapAction)
+
+            menu.exec(event.screenPos())
+
+    def swap(self):
+        pos0, pos1 = [self.itemList.index(item) for item in self.selectedItemList]
+        print(pos0,pos1)
+        mapper0 = self.generateIndexMapper(pos0)
+        mapper1 = self.generateIndexMapper(pos1)
+        arrayX0 = self.df.loc[self.currentFrameNo:, mapper0['x']].as_matrix()
+        arrayY0 = self.df.loc[self.currentFrameNo:, mapper0['y']].as_matrix()
+        arrayX1 = self.df.loc[self.currentFrameNo:, mapper1['x']].as_matrix()
+        arrayY1 = self.df.loc[self.currentFrameNo:, mapper1['y']].as_matrix()
+        tmpX = arrayX0.copy()
+        print(arrayX1)
+        arrayX0[:] = arrayX1
+        arrayX1[:] = tmpX
+
+        tmpY = arrayY0.copy()
+        arrayY0[:] = arrayY1
+        arrayY1[:] = tmpY
+
+        for item in self.selectedItemList:
+            item.setPoints()
         
+        return
+
+    def setDrawItem(self, pos, flag):
+        self.drawItemFlag = flag
+        for item in self.itemList:
+            item.setDrawItem(pos, flag)
+
+    def setDrawLine(self, flag):
+        self.drawLineFlag = flag
+        for item in self.itemList:
+            item.setDrawLine(flag)
+
+    def setOverlayFrameNo(self, n):
+        self.overlayFrameNo = n
+        self.setPoints()
+    def setRadius(self,r):
+        self.radius = r
+        for item in self.itemList:
+            item.setRadius(self.radius)
     def setRect(self, rect):
         self.rect = rect
     def boundingRect(self):

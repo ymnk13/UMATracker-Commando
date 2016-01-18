@@ -83,10 +83,21 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         self.groupBox_2.hide()
         
         
-        self.processDropedFile("./a.csv")
         self.inputGraphicsView.viewport().setCursor(QtCore.Qt.ArrowCursor)
         #
-        
+        self.optionViewButton.pressed.connect(self.optionViewButtonPressed)
+        self.groupBox_2.hide()
+        self.zoomedGraphicsView.hide()
+
+    def optionViewButtonPressed(self):
+        if self.videoPlaybackWidget.isVisible():
+            if self.groupBox_2.isVisible():
+                self.optionViewButton.setText("<")
+                self.groupBox_2.hide()
+            else:
+                self.optionViewButton.setText(">")
+                self.groupBox_2.show()
+
     def overlayCheckBoxStateChanged(self, s):
         if self.overlayCheckBox.isChecked():
             self.frameBufferItemGroup.show()
@@ -101,22 +112,20 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         min_value = max(self.currentFrameNo-overlayFrameNo,0)
         current_pos = self.currentFrameNo - min_value
 
-        if self.trackingPathGroup is not None:
-            self.trackingPathGroup.setDrawItem(current_pos, self.circleCheckBox.isChecked())
-            self.trackingPathGroup.setDrawLine(self.lineCheckBox.isChecked())
-
+        if self.handInputSystem is not None:
+            self.handInputSystem.setDrawItem(current_pos, self.circleCheckBox.isChecked())
+            self.handInputSystem.setDrawLine(self.lineCheckBox.isChecked())
             self.updateInputGraphicsView()
 
     def radiusSpinBoxValueChanged(self, value):
-        if self.trackingPathGroup is not None:
-            self.trackingPathGroup.setRadius(self.radiusSpinBox.value())
+        if self.handInputSystem is not None:
+            self.handInputSystem.setRadius(self.radiusSpinBox.value())
             self.updateInputGraphicsView()
 
     def frameNoSpinBoxValueChanged(self, value):
-        if self.trackingPathGroup is not None:
-            self.trackingPathGroup.setOverlayFrameNo(self.frameNoSpinBox.value())
+        if self.handInputSystem is not None:
+            self.handInputSystem.setOverlayFrameNo(self.frameNoSpinBox.value())
             self.updateInputGraphicsView()
-
     def dragEnterEvent(self,event):
         event.acceptProposedAction()
 
