@@ -26,6 +26,9 @@ class Ui_MainWindowBase(object):
         self.groupBox.setObjectName("groupBox")
         self.verticalLayout = QtWidgets.QVBoxLayout(self.groupBox)
         self.verticalLayout.setObjectName("verticalLayout")
+        self.dataFrameWidget = ColorLabelChange_Widget(self.groupBox)
+        self.dataFrameWidget.setObjectName("dataFrameWidget")
+        self.verticalLayout.addWidget(self.dataFrameWidget)
         self.inputGraphicsView = OverlaidGraphicsView(self.groupBox)
         self.inputGraphicsView.setAcceptDrops(False)
         self.inputGraphicsView.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
@@ -158,5 +161,6 @@ class Ui_MainWindowBase(object):
         self.actionOpenCSVFile.setText(_translate("MainWindowBase", "Open CSV File"))
         self.actionSaveCSVFile.setText(_translate("MainWindowBase", "Save CSV FIle"))
 
+from .color_select_widget import ColorLabelChange_Widget
 from .overlaid_graphics_view import OverlaidGraphicsView
 from .video_playback_widget import VideoPlaybackWidget

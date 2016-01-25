@@ -162,12 +162,12 @@ class HandInputSystem(QGraphicsObject):
             item.setPoints(array, flags)
 
     def nextDataFrame(self):
-        print("NextDataFrame")
         if self.editingNo <= self.dataFrameNo-1:
             self.editingNo+=1
         else:
             self.addNewDataFrame()
             self.editingNo+=1
+        #print("NextDataFrame",self.editingNo)
         self.setEditingLastValidFrameNo()
         
     def setEditingLastValidFrameNo(self):
@@ -184,8 +184,12 @@ class HandInputSystem(QGraphicsObject):
     def previousDataFrame(self):
         if self.editingNo > 0:
             self.editingNo-=1
+        print("Previous Frame",self.editingNo)
         #print(self.df,self.editingNo)
         self.setEditingLastValidFrameNo()
+
+    def setEditingNo(self,editingNo):
+        self.editingNo = editingNo
 
     def addNewDataFrame(self):
         workingNo = self.dataFrameNo+1
@@ -259,18 +263,16 @@ class HandInputSystem(QGraphicsObject):
         self.itemList.clear()
 
         for i in range(self.dataFrameNo+1):
-            print(i)
             rgb = np.random.randint(0, 255, (1, 3)).tolist()[0]
             trackingPath = TrackingPath(self)
             trackingPath.setRect(scene.sceneRect())
             trackingPath.setColor(rgb)
             trackingPath.setLineWidth(14)
-            #trackingPath.setRadius(10)
             trackingPath.itemSelected.connect(self.itemSelected)
             self.itemList.append(trackingPath)
+
     @pyqtSlot(object)
     def itemSelected(self, item):
-        print("B")
         if item.selected:
             self.selectedItemList.append(item)
             if len(self.selectedItemList)>2:
@@ -297,7 +299,6 @@ class HandInputSystem(QGraphicsObject):
 
     def swap(self):
         pos0, pos1 = [self.itemList.index(item) for item in self.selectedItemList]
-        print(pos0,pos1)
         mapper0 = self.generateIndexMapper(pos0)
         mapper1 = self.generateIndexMapper(pos1)
         arrayX0 = self.df.loc[self.currentFrameNo:, mapper0['x']].as_matrix()
@@ -305,7 +306,6 @@ class HandInputSystem(QGraphicsObject):
         arrayX1 = self.df.loc[self.currentFrameNo:, mapper1['x']].as_matrix()
         arrayY1 = self.df.loc[self.currentFrameNo:, mapper1['y']].as_matrix()
         tmpX = arrayX0.copy()
-        print(arrayX1)
         arrayX0[:] = arrayX1
         arrayX1[:] = tmpX
 
@@ -315,8 +315,11 @@ class HandInputSystem(QGraphicsObject):
 
         for item in self.selectedItemList:
             item.setPoints()
-        
+
         return
+
+    def setColor(self,rgb):
+        self.itemList[self.editingNo].setColor(rgb)
 
     def setDrawItem(self, pos, flag):
         self.drawItemFlag = flag

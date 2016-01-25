@@ -31,6 +31,9 @@
       </property>
       <layout class="QVBoxLayout" name="verticalLayout">
        <item>
+        <widget class="ColorLabelChange_Widget" name="dataFrameWidget" native="true"/>
+       </item>
+       <item>
         <widget class="OverlaidGraphicsView" name="inputGraphicsView">
          <property name="acceptDrops">
           <bool>false</bool>
@@ -256,6 +259,12 @@
    <class>VideoPlaybackWidget</class>
    <extends>QWidget</extends>
    <header>.video_playback_widget</header>
+  </customwidget>
+  <customwidget>
+   <class>ColorLabelChange_Widget</class>
+   <extends>QWidget</extends>
+   <header>.colorlabelchange_widget</header>
+   <container>1</container>
   </customwidget>
  </customwidgets>
  <resources/>
