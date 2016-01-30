@@ -151,9 +151,15 @@ class HandInputSystem(QGraphicsObject):
         
         for i, item in enumerate(self.itemList):
             mapper = self.generateIndexMapper(i)
+            firstValidIndex = self.df[mapper['x']].last_valid_index()
+            if firstValidIndex is None:
+                firstValidIndex = 0
+            max_value = self.currentFrameNo# + self.overlayFrameNo
+            max_value = np.min([max_value,firstValidIndex])
             array = self.df.loc[min_value:max_value, (mapper['x'],mapper['y'])].as_matrix()
             if len(array) is 0:
                 continue
+            #array = [item for item in array if item[0]!=float("NaN")]
             
             flags = np.full(len(array), False, dtype=np.bool)
             if self.drawItemFlag and pos < len(array):
@@ -317,6 +323,9 @@ class HandInputSystem(QGraphicsObject):
             item.setPoints()
 
         return
+
+    def isDataFrame(self):
+        return (self.df is not None)
 
     def setColor(self,rgb):
         self.itemList[self.editingNo].setColor(rgb)
