@@ -82,21 +82,32 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         self.frameNoSpinBox.valueChanged.connect(self.frameNoSpinBoxValueChanged)
         self.groupBox_2.hide()
         
-        
+
         self.inputGraphicsView.viewport().setCursor(QtCore.Qt.ArrowCursor)
         #
         self.optionViewButton.pressed.connect(self.optionViewButtonPressed)
-        self.groupBox_2.hide()
         self.zoomedGraphicsView.hide()
 
+        self.dataFrameWidget.dataFrameChanged.connect(self.dataFrameChanged)
+        self.dataFrameWidget.hide()
+        self.handInputSystem.setColor(self.dataFrameWidget.getColor())
+        
+        #self.processDropedFile("/Users/ymnk/temp/Dast/2016/01/hoge.avi")
+        #self.processDropedFile("./a.csv")        
+    def dataFrameChanged(self,addedFrameFlag,editingNo,color):
+        if addedFrameFlag:
+            self.handInputSystem.addNewDataFrame()
+        self.handInputSystem.setEditingNo(editingNo)
+        self.handInputSystem.setColor(color)
+        print(addedFrameFlag,color,editingNo)
+
     def optionViewButtonPressed(self):
-        if self.videoPlaybackWidget.isVisible():
-            if self.groupBox_2.isVisible():
-                self.optionViewButton.setText("<")
-                self.groupBox_2.hide()
-            else:
-                self.optionViewButton.setText(">")
-                self.groupBox_2.show()
+        if self.groupBox_2.isVisible():
+            self.optionViewButton.setText("<")
+            self.groupBox_2.hide()
+        else:
+            self.optionViewButton.setText(">")
+            self.groupBox_2.show()
 
     def overlayCheckBoxStateChanged(self, s):
         if self.overlayCheckBox.isChecked():
@@ -161,6 +172,9 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
             self.cv_img = frame
             self.currentFrameNo = frameNo
             self.updateInputGraphicsView()
+            if self.videoInitialFlag == True:
+                 self.graphicsViewResized()
+                 self.videoInitialFlag = False
             self.evaluate()
 
     def imgInit(self):
@@ -248,9 +262,11 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
             elif key == QtCore.Qt.Key_R:
                 self.graphicsViewResized()
             elif key == QtCore.Qt.Key_P:
-                self.handInputSystem.nextDataFrame()
+                pass
+                #self.handInputSystem.nextDataFrame()
             elif key == QtCore.Qt.Key_O:
-                self.handInputSystem.previousDataFrame()
+                pass
+                #self.handInputSystem.previousDataFrame()
             elif key == QtCore.Qt.Key_J:
                 frameNo = self.handInputSystem.getLastInputedFrameIndex()
                 self.videoPlaybackWidget.moveToFrame(frameNo)
@@ -293,9 +309,9 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
             ret = self.videoPlaybackWidget.openVideo(filePath)
             if ret == False:
                 return False
-
+            self.videoInitialFlag = True
             self.videoPlaybackWidget.show()
-
+            self.dataFrameWidget.show()
             # self.evaluate()
 
             return True
@@ -335,13 +351,21 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
             self.inputScene.addItem(self.handInputSystem)
             self.handInputSystem.setDataFrame(self.df)
             self.handInputSystem.setPoints()
-            ### 
-            
+
+            self.dataFrameWidget.clear()
+            self.dataFrameWidget.dataFrameNo = self.handInputSystem.dataFrameNo
+            self.dataFrameWidget.editingNo = 0
+            for item in range(self.handInputSystem.dataFrameNo+1):
+                color = self.handInputSystem.itemList[item].getColor()
+                print(item,color)
+                self.dataFrameWidget.colorList.append(color)
+            self.dataFrameWidget.setUniqueIDLabel()
 
             self.evaluate()
 
     def saveCSVFile(self, activated=False, filePath = None):
-        if self.df is not None:
+        #if self.df is not None:
+        if self.handInputSystem.isDataFrame():
             filePath, _ = QFileDialog.getSaveFileName(None, 'Save CSV File', userDir, "CSV files (*.csv)")
 
             if len(filePath) is not 0:
@@ -365,7 +389,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         self.inputScene.addItem(self.inputPixmapItem)
 
         self.inputGraphicsView.viewport().update()
-        #self.graphicsViewResized()
+        # self.graphicsViewResized()
 
     def eventFilter(self, obj, event):
         if obj is self.inputGraphicsView.viewport() and event.type()==QEvent.Wheel:
@@ -411,7 +435,7 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = Ui_MainWindow()
     MainWindow.setWindowIcon(QIcon(':/icon/icon.ico'))
-    MainWindow.setWindowTitle('UMATracker-TrackingCorrector')
+    MainWindow.setWindowTitle('UMATracker-commando')
     MainWindow.show()
     sys.exit(app.exec_())
 
