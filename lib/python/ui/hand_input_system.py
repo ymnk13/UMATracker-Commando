@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsItem, QGraphicsItemGroup, QGraphicsPixmapItem, QGraphicsEllipseItem, QFrame, QFileDialog, QPushButton, QGraphicsObject, QMenu, QAction
-from PyQt5.QtGui import QPixmap, QImage, QPainter, QPolygonF, QColor
+from PyQt5.QtGui import QPixmap, QImage, QPainter, QPolygonF, QColor, QCursor
 from PyQt5.QtCore import QPoint, QPointF, QRectF, pyqtSlot, QObject
 
 import numpy as np
@@ -12,334 +11,354 @@ import pandas as pd
 import scipy.interpolate as interpolate
 from functools import cmp_to_key
 from .tracking_path import TrackingPath
-#from .rotatable_ellipse import RotatableArrowObject
 from .rotatable_ellipse import RotatableEllipseData,RotatableEllipse
+from scipy import interpolate
+
 class HandInputSystem(QGraphicsObject):
     def __init__(self,parent = None):
         super(HandInputSystem,self).__init__(parent)
-
         self.setZValue(1000)
         self.rect = QRectF()
+        """
         self.df = pd.DataFrame({"x0":[],"y0":[],
                                 "VX0_0":[],"VY0_0":[],
                                 "VX1_0":[],"VY1_0":[],
                                 "depth_0":[]})
-
+        """
+        self.df = pd.DataFrame()
+        self.dataFrameNo = -1
+        self.editingNo = 0
+        self.lastInputedFrameIndex = {}
         self.currentFrameNo = 0
-        self.frameWidth = 30*5
+        self.itemList = []
+        self.drawItemFlag = True
+        self.selectedItemList = []
+        self.overlayFrameNo = 1
+        """
+        df = pd.DataFrame([[100,200]],columns = ["x0","y0"],index = [10])
+        self.df = df.combine_first(self.df)
+        df = pd.DataFrame([[100,200]],columns = ["x0","y0"],index = [10])
 
-        self.inputedPoints = interpolateLine([[]])
-        self.trackingPath = None
-        self.inputedTrackingPath = None
+        self.df = df.combine_first(self.df)
+        self.df.loc[100] = [200,100]
+        #print(self.df.loc[100]['x0'])
+        """
+        """
+        print(self.df.loc[100:100,('x0','y0')])
+        self.df.loc[100:100,('x0','y0')] = [500,200]
+        print(self.df.loc[100:100,('x0','y0')])
+        """
 
-        self.ellipseItem = None
-        self.editingOriginData = None
-        self.frameWidthAngle = 30
+        """
+        self.workingNo += 1
+        self.addNewDataFrame(self.workingNo)
+        """
 
-    def setPoint(self,currentFrameNo):
-        #currentFrameNo = 1
-        if self.ellipseItem == None:
-            self.ellipseItem = RotatableEllipseData(None)
-            
-            scene = self.scene()
-            scene.addItem(self.ellipseItem)
-            self.ellipseItem.setPoints([[100,100],[200,150]])
-            self.ellipseItem.setAngle(0*np.pi/180.0,True)
-            self.ellipseItem.hide()
-        currentFrameData = self.df.loc[currentFrameNo:currentFrameNo]
-        dataIndex = 0
-        indexMapper = self.generateIndexMapper(dataIndex)
-        if len(currentFrameData) is 0:
-            return False
-        currentFrameData = self.df.iloc[currentFrameNo]
-        self.editingOriginData = currentFrameData.copy()
-        if np.isnan(currentFrameData[indexMapper['x']]) and\
-           np.isnan(currentFrameData[indexMapper['y']]):
-            self.ellipseItem.hide()
+        #print(self.df.iloc[0])
+        #self.df.concat([[100,100],["x0","y0"]])
+        #data = data.append(pd.dataFrame([1,2,3,4,5],columns=["A","B","C","D","E"],index=data[-1:].index+1))
+        self.positionStack = {}
+    
+
+    def inputMouseMoveEvent(self,mousePosition,currentFrameNo):
+        mapper = self.generateIndexMapper(self.editingNo)
+        #self.positionStack[currentFrameNo] = mousePosition
+        #print(currentFrameNo)
+        #self.positionStack.append(mousePosition)
+        """
+        df = pd.DataFrame([mousePosition],columns = [mapper['x'],mapper['y']],index = [currentFrameNo])
+        self.df = df.combine_first(self.df)
+        print(currentFrameNo)
+        """
+
+    def inputMouseReleaseEvent(self):
+        mapper = self.generateIndexMapper(self.editingNo)
+        mouses = np.array(list(self.positionStack.values()))
+        if len(mouses) is 0:
+            return
+        data = {
+            mapper['x']:mouses[:,0],
+            mapper['y']:mouses[:,1]
+        }
+        dataIndex = list(self.positionStack.keys())
+        df = pd.DataFrame(data,index = dataIndex)
+        self.df = df.combine_first(self.df)
+        #self.df.insert(df)
+        print(self.df)
+        lastInputedFrameNum = self.lastInputedFrameIndex[self.editingNo]
+        print("BB",self.lastInputedFrameIndex[self.editingNo],min(dataIndex))
+        if self.lastInputedFrameIndex[self.editingNo] == min(dataIndex)-1:
+            print("AA",self.lastInputedFrameIndex[self.editingNo])
+            self.lastInputedFrameIndex[self.editingNo] = max(dataIndex)
+            self.positionStack = {}            
             return False
         else:
-            # View Initial Ellipse
-            # position is known
-            self.ellipseItem.setDataFrame(currentFrameData,indexMapper)
-            self.ellipseItem.show()
-            return True
+            newDataIndex = range(lastInputedFrameNum,min(dataIndex))
+            A = self.df.ix[lastInputedFrameNum+1:min(dataIndex)-1]
+            X_new,Y_new = [],[]
+            time_new = []
+            if A.empty:
+                ## 補完
+                
+                if lastInputedFrameNum == 0:
+                    time_old = range(min(dataIndex),min(dataIndex)+6)
+                    time_new = list(range(lastInputedFrameNum,min(dataIndex)))
+                    data = self.df.ix[min(dataIndex):min(dataIndex)+5].as_matrix()
+                    X,Y = data[:,0],data[:,1]
+                    A = np.array([time_old,np.ones(len(time_old))])
+                    A = A.T
+                    # X
+                    a,b = np.linalg.lstsq(A,X)[0]
+                    time_new = np.array(time_new)
+                    X_new = a*time_new+b
+                    # Y
+                    a,b = np.linalg.lstsq(A,Y)[0]
+                    time_new = np.array(time_new)
+                    Y_new = a*time_new+b
+                    tmp_new = np.dstack([X_new,Y_new])[0]
+                    
+                else:
+                    time_old = list(range(min(dataIndex),min(dataIndex)+6))+\
+                               list(range(lastInputedFrameNum-6,lastInputedFrameNum))
+                    time_new = list(range(lastInputedFrameNum+1,min(dataIndex)))
+                    data0 = self.df.ix[min(dataIndex):min(dataIndex)+5].as_matrix()
+                    data1 = self.df.ix[lastInputedFrameNum-5:lastInputedFrameNum].as_matrix()
+                    
+                    data = np.r_[data0,data1]
+                    X,Y = data[:,0],data[:,1]
+                    mode = 'slinear'
+                    X_new = interpolate.interp1d(time_old,X,kind = mode)(time_new)
+                    Y_new = interpolate.interp1d(time_old,Y,kind = mode)(time_new)
+            self.lastInputedFrameIndex[self.editingNo] = max(dataIndex)
+            data = {
+                mapper['x']:X_new,
+                mapper['y']:Y_new
+            }
+            df = pd.DataFrame(data,index = time_new)
+            self.df = df.combine_first(self.df)
+            print(self.df)
+        
+        self.positionStack = {}
+        #self.addNewDataFrame()
+        return True
+    def setPoints(self,frameNo = None):
+        if frameNo is not None:
+            self.currentFrameNo = frameNo
+        
+        min_value = max(self.currentFrameNo - self.overlayFrameNo, 0)
+        max_value = self.currentFrameNo + self.overlayFrameNo
+        pos = self.currentFrameNo - min_value
+        
+        for i, item in enumerate(self.itemList):
+            mapper = self.generateIndexMapper(i)
+            firstValidIndex = self.df[mapper['x']].last_valid_index()
+            if firstValidIndex is None:
+                firstValidIndex = 0
+            max_value = self.currentFrameNo# + self.overlayFrameNo
+            max_value = np.min([max_value,firstValidIndex])
+            array = self.df.loc[min_value:max_value, (mapper['x'],mapper['y'])].as_matrix()
+            if len(array) is 0:
+                continue
+            #array = [item for item in array if item[0]!=float("NaN")]
+            
+            flags = np.full(len(array), False, dtype=np.bool)
+            if self.drawItemFlag and pos < len(array):
+                flags[pos] = True
+
+            item.setPoints(array, flags)
+
+    def nextDataFrame(self):
+        if self.editingNo <= self.dataFrameNo-1:
+            self.editingNo+=1
+        else:
+            self.addNewDataFrame()
+            self.editingNo+=1
+        #print("NextDataFrame",self.editingNo)
+        self.setEditingLastValidFrameNo()
+        
+    def setEditingLastValidFrameNo(self):
+        #
+        mapper = self.generateIndexMapper(self.editingNo)
+        firstValidIndex = self.df[mapper['x']].last_valid_index()
+        if firstValidIndex is None:
+            firstValidIndex = 0
+        self.lastInputedFrameIndex[self.editingNo] = firstValidIndex
+        
+    def getLastInputedFrameIndex(self):
+        return self.lastInputedFrameIndex[self.editingNo]
+
+    def previousDataFrame(self):
+        if self.editingNo > 0:
+            self.editingNo-=1
+        print("Previous Frame",self.editingNo)
+        #print(self.df,self.editingNo)
+        self.setEditingLastValidFrameNo()
+
+    def setEditingNo(self,editingNo):
+        self.editingNo = editingNo
+
+    def addNewDataFrame(self):
+        workingNo = self.dataFrameNo+1
+        mapper = self.generateIndexMapper(workingNo)
+        df = pd.DataFrame(dict(zip(mapper.values(),[[] for i in range(len(mapper.values()))])))
+        self.df = self.df.append(df)
+        self.dataFrameNo+=1
+        self.lastInputedFrameIndex[self.dataFrameNo] = 0
+
+        #
+        scene = self.scene()
+        """
+        if scene is not None:
+            for item in self.itemList:
+                scene.removeItem(item)
+                del item
+        self.itemList.clear()
+        """
+        rgb = (255,0,0)
+        rgb = np.random.randint(0, 255, (1, 3)).tolist()[0]
+        trackingPath = TrackingPath(self)
+        trackingPath.setRect(scene.sceneRect())
+        trackingPath.setColor(rgb)
+        trackingPath.setLineWidth(14)
+        #trackingPath.setRadius(10)
+        trackingPath.itemSelected.connect(self.itemSelected)
+        self.itemList.append(trackingPath)
+
+    def appendPosition(self,mousePosition,frameNo = None):
+        if frameNo is not None:
+            self.currentFrameNo = frameNo
+        self.positionStack[self.currentFrameNo] = mousePosition
+
     def generateIndexMapper(self,dataNumber):
         dataIndex = dataNumber
-        indexMapper = {'x':'x{0}'.format(dataIndex),
-                       'y':'y{0}'.format(dataIndex),
+        indexMapper = {'x':'x{0}'.format(dataIndex),'y':'y{0}'.format(dataIndex),
+        }
+        """
                        'VX0':'VX0_{0}'.format(dataIndex), #major
                        'VY0':'VY0_{0}'.format(dataIndex),
                        'VX1':'VX1_{0}'.format(dataIndex), #minor
                        'VY1':'VY1_{0}'.format(dataIndex),
                        'depth':'depth_{0}'.format(dataIndex)}
+        """
         return indexMapper
-    def setDepth(self,currentFrameNo,depth):
-        currentFrameData = self.df.loc[currentFrameNo:currentFrameNo]
-        dataIndex = 0
-        indexMapper = self.generateIndexMapper(dataIndex)
-        if len(currentFrameData) is 0:
-            return False
-        index = range(currentFrameNo+1,currentFrameNo+self.frameWidthAngle+2)
-        currentFrameData = self.df.iloc[currentFrameNo]
-        #[currentFrameData[indexMapper['depth']]
-        d = {
-            indexMapper['depth']:np.array([depth]*30)
-        }
-        # index制限を行うべき
-        index = range(currentFrameNo,currentFrameNo+30)
-        
-        df1 = pd.DataFrame(d,index = index)
-        print(df1)
-        self.df = df1.combine_first(self.df)
 
-    def saveAngleDataToNextFrame(self,currentFrameNo,flag = True):
-        currentFrameData = self.df.loc[currentFrameNo:currentFrameNo]
-        dataIndex = 0
-        indexMapper = self.generateIndexMapper(dataIndex)
-        if len(currentFrameData) is 0:
-            return False
-        currentFrameData = self.df.iloc[currentFrameNo]
-        nextFrameData = self.df.iloc[currentFrameNo+1]
-        if flag == True:
-            nextFrameData[indexMapper['x']] = currentFrameData[indexMapper['x']]
-            nextFrameData[indexMapper['y']] = currentFrameData[indexMapper['y']]
-        nextFrameData[indexMapper['VX0']] = currentFrameData[indexMapper['VX0']]
-        nextFrameData[indexMapper['VX1']] = currentFrameData[indexMapper['VX1']]
-        nextFrameData[indexMapper['VY0']] = currentFrameData[indexMapper['VY0']]
-        nextFrameData[indexMapper['VY1']] = currentFrameData[indexMapper['VY1']]
-        nextFrameData[indexMapper['depth']] = currentFrameData[indexMapper['depth']]
-
-    def evaluateInputAngle(self,currentFrameNo):
-        firstFrame = int(currentFrameNo/(self.frameWidth))*self.frameWidth
-        endFrame = (int(currentFrameNo/(self.frameWidth))+1)*self.frameWidth
-        print("EvaluateInputAngle",firstFrame,endFrame)
-        # SemiAuto input angle data
-        index = range(currentFrameNo+1,currentFrameNo+self.frameWidthAngle+2)
-        dataNumber = 0
-        dataMap = self.generateIndexMapper(dataNumber)
-        currentFrameData = self.df.iloc[currentFrameNo]
-        diffVector = np.array([currentFrameData[dataMap['x']],
-                               currentFrameData[dataMap['y']]])-\
-                     np.array([self.editingOriginData[dataMap['x']],
-                               self.editingOriginData[dataMap['y']]])
-        
-        X = self.df.loc[currentFrameNo+1:currentFrameNo+self.frameWidthAngle+1,dataMap['x']].as_matrix()
-        Y = self.df.loc[currentFrameNo+1:currentFrameNo+self.frameWidthAngle+1,dataMap['y']].as_matrix()
-        X+=diffVector[0]
-        Y+=diffVector[1]
-        N = currentFrameNo+self.frameWidthAngle+1-(currentFrameNo+1)+1
-        # TODO: 移動角度で補完をおこなう
-        d = {
-            dataMap['VX0']:np.array([currentFrameData[dataMap['VX0']]]*N),
-            dataMap['VX1']:np.array([currentFrameData[dataMap['VX1']]]*N),
-            dataMap['VY0']:np.array([currentFrameData[dataMap['VY0']]]*N),
-            dataMap['VY1']:np.array([currentFrameData[dataMap['VY1']]]*N),
-            dataMap['depth']:np.array([currentFrameData[dataMap['depth']]]*N),
-        }
-        df1 = pd.DataFrame(d,index = index)
-        self.df = df1.combine_first(self.df)
-
-    def clearTrackingPath(self):
-        scene = self.scene()
-        if not self.trackingPath == None:
-            scene.removeItem(self.trackingPath)
-            self.trackingPath = None
-
-
-    def inputMouseMoveEvent(self, mousePosition):
-        if mousePosition[0] <0:
-            return
-        if mousePosition[1] < 0:
-            return
-        if not len(self.inputedPoints[-1]) == 0:
-            lastInputedPosition = self.inputedPoints[-1][-1]
-            distance = np.linalg.norm(mousePosition-lastInputedPosition)
-            if  distance > 10:
-                self.inputedPoints[-1].append(mousePosition)
-        else:
-            self.inputedPoints[-1].append(mousePosition)
-
-    def inputMouseReleaseEvent(self):
-        if len(self.inputedPoints[-1]) < 2:
-            del self.inputedPoints[-1]
-            return 
-        self.viewInterpolatedPath()
-        if not self.inputedPoints[-1] == []:
-            self.inputedPoints.append([])
-
-    def viewInterpolatedPath(self):
-        scene = self.scene()
-        if not self.trackingPath == None:
-            scene.removeItem(self.trackingPath)
-        tmp_new = self.inputedPoints.calcInterpolateLine()
-
-        self.trackingPath = TrackingPath(None)
-        self.trackingPath.setColor([255,0,0])
-        self.trackingPath.setLineWidth(1)
-        flags = np.full(len(tmp_new), False, dtype=np.bool)
-        self.trackingPath.setPoints(tmp_new,flags)
-        
-        self.trackingPath.setRect(scene.sceneRect())
-        scene.addItem(self.trackingPath)        
-
-    def deleteLastInputLine(self):
-        if self.inputedPoints.len() > 1:
-            del self.inputedPoints[-2]
-            self.viewInterpolatedPath()
-            self.inputedPoints.append([])
-            self.inputMouseReleaseEvent()
-
-    def saveInputedLine(self,currentFrameNo):
-        firstFrame = int(currentFrameNo/(self.frameWidth))*self.frameWidth
-        endFrame = (int(currentFrameNo/(self.frameWidth))+1)*self.frameWidth
-        print("saveInputedLine",firstFrame,endFrame)
-        tmp_new = self.inputedPoints.calcInterpolateLine()
-        a = np.array([tmp_new])
-        if len(tmp_new) is not 0:
-            axis = ['x{0}', 'y{0}'] # Save Line
-            d = dict((axe.format(i), a[i,:,j]) for i in range(a.shape[0]) for axe,j in zip(axis, range(2)))
-            # d = {x0:[],y0:}
-            index = range(firstFrame,endFrame)
-            df1 = pd.DataFrame(d,index = index)
-            self.df = df1.combine_first(self.df)
-        if not self.trackingPath == None:
-            scene = self.scene()
-            scene.removeItem(self.trackingPath)
-            self.trackingPath = None
-            self.inputedPoints.clear()
-
-    
-
-    def setDataFrame(self,currentFrameNo):
-        frameNo = currentFrameNo
-        min_value = frameNo
-        max_value = frameNo+self.frameWidth-1
-        scene = self.scene()
-        if not self.inputedTrackingPath == None:
-            
-            scene.removeItem(self.inputedTrackingPath)
-            self.inputedTrackingPath = None
-        min_value = frameNo
-        max_value = frameNo+self.frameWidth
-        array = self.df.loc[min_value:max_value,('x0','y0')].as_matrix()
-        flags = np.full(len(array), False, dtype=np.bool)
-
-        if not self.inputedTrackingPath == None:
-            scene.removeItem(self.inputedTrackingPath)
-            self.inputedTrackingPath = None
-
-        if len(array) <= 0:
-            return
-
-        self.inputedTrackingPath = TrackingPath(None)
-        self.inputedTrackingPath.setColor([0,0,255])
-        self.inputedTrackingPath.setLineWidth(1)
-        self.inputedTrackingPath.setPoints(array,flags)
-        self.inputedTrackingPath.setRect(scene.sceneRect())
-        scene.addItem(self.inputedTrackingPath)
-        self.inputedPoints.clear()
-
-        self.inputedPoints.clear()
-
-    def save(self,filePath):
+    def saveCSV(self,filePath):
         df = self.df.copy()
-        inputElementN = 6
-        col_n = int(df.as_matrix().shape[1]/inputElementN)
-
-        """
+        N = len(self.generateIndexMapper(0).keys())
+        col_n = df.as_matrix().shape[1]/N
         col_names = np.array([('x{0}'.format(i),
-                               'y{0}'.format(i),
-                               'VX0_{0}'.format(i),
-                               'VY0_{0}'.format(i),
-                               'VX1_{0}'.format(i),
-                               'VY1_{0}'.format(i),
-                               'depth_{0}'.format(i)) for i in range(int(round(col_n)))]).flatten()
-        """
+                               'y{0}'.format(i)) for i in range(int(round(col_n)))]).flatten()
         #df.columns = pd.Index(col_names)
-        print(df)
         df.to_csv(filePath)
 
+    def setDataFrame(self,df):
+        mapper = self.generateIndexMapper(0)
+        columnNum = len(mapper.values())
+        shape = df.shape
+        self.dataFrameNo = int(shape[1]/columnNum)-1
+        self.editingNo = 0
+        self.df = df
+        self.setEditingLastValidFrameNo()
 
-    def setPoints(self,frameNo = None):
-        pass
-    def setRect(self,rect):
+        scene = self.scene()
+        
+        if scene is not None:
+            for item in self.itemList:
+                scene.removeItem(item)
+                del item
+        self.itemList.clear()
+
+        for i in range(self.dataFrameNo+1):
+            rgb = np.random.randint(0, 255, (1, 3)).tolist()[0]
+            trackingPath = TrackingPath(self)
+            trackingPath.setRect(scene.sceneRect())
+            trackingPath.setColor(rgb)
+            trackingPath.setLineWidth(14)
+            trackingPath.itemSelected.connect(self.itemSelected)
+            self.itemList.append(trackingPath)
+
+    @pyqtSlot(object)
+    def itemSelected(self, item):
+        if item.selected:
+            self.selectedItemList.append(item)
+            if len(self.selectedItemList)>2:
+                removedItem = self.selectedItemList.pop(0)
+                removedItem.selected = False
+                removedItem.itemType = QGraphicsEllipseItem
+                removedItem.setPoints()
+        else:
+            try:
+                self.selectedItemList.remove(item)
+            except ValueError:
+                pass
+
+    def contextMenuEvent(self, event):
+        if len(self.selectedItemList) == 2:
+            widget = self.parentWidget()
+            menu = QMenu(widget)
+
+            swapAction = QAction("Swap", widget)
+            swapAction.triggered.connect(self.swap)
+            menu.addAction(swapAction)
+
+            menu.exec(event.screenPos())
+
+    def swap(self):
+        pos0, pos1 = [self.itemList.index(item) for item in self.selectedItemList]
+        mapper0 = self.generateIndexMapper(pos0)
+        mapper1 = self.generateIndexMapper(pos1)
+        arrayX0 = self.df.loc[self.currentFrameNo:, mapper0['x']].as_matrix()
+        arrayY0 = self.df.loc[self.currentFrameNo:, mapper0['y']].as_matrix()
+        arrayX1 = self.df.loc[self.currentFrameNo:, mapper1['x']].as_matrix()
+        arrayY1 = self.df.loc[self.currentFrameNo:, mapper1['y']].as_matrix()
+        tmpX = arrayX0.copy()
+        arrayX0[:] = arrayX1
+        arrayX1[:] = tmpX
+
+        tmpY = arrayY0.copy()
+        arrayY0[:] = arrayY1
+        arrayY1[:] = tmpY
+
+        for item in self.selectedItemList:
+            item.setPoints()
+
+        return
+
+    def isDataFrame(self):
+        return (self.df is not None)
+
+    def setColor(self,rgb):
+        self.itemList[self.editingNo].setColor(rgb)
+
+    def setDrawItem(self, pos, flag):
+        self.drawItemFlag = flag
+        for item in self.itemList:
+            item.setDrawItem(pos, flag)
+
+    def setDrawLine(self, flag):
+        self.drawLineFlag = flag
+        for item in self.itemList:
+            item.setDrawLine(flag)
+
+    def setOverlayFrameNo(self, n):
+        self.overlayFrameNo = n
+        self.setPoints()
+    def setRadius(self,r):
+        self.radius = r
+        for item in self.itemList:
+            item.setRadius(self.radius)
+    def setRect(self, rect):
         self.rect = rect
+    def boundingRect(self):
+        return self.rect
     def paint(self, painter, option, widget):
         pass
-
-
-
-
-class interpolateLine:
-    # http://stackoverflow.com/questions/27698604/what-do-the-different-values-of-the-kind-argument-mean-in-scipy-interpolate-inte
-    def __init__(self,A = [],inputWidth = 150):
-        super(interpolateLine,self).__init__()
-        self.pointLists = A
-        self.interpolateLine = []
-        self.inputWidth = inputWidth
-    def calcInterpolateLine(self):
-        print(self.pointLists)
-        self.sortedRawPoints()
-        time_new = np.linspace(0,150,150)
-        tmp = np.array([i for item in self.pointLists for i in item])
-        time_old = np.linspace(0,150,len(tmp))
-        if len(tmp) <= 0:
-            return []
-        X = tmp[:,0]
-        Y = tmp[:,1]
-        mode = 'slinear'
-        X_new = interpolate.interp1d(time_old,X,kind = mode)(time_new)
-        Y_new = interpolate.interp1d(time_old,Y,kind = mode)(time_new)
-        tmp_new = np.dstack([X_new,Y_new])[0]
-        self.interpolateResult = tmp_new
-        return tmp_new
-
-    def sortedRawPoints(self):
-        def sortComp(X,Y):
-            if len(X) < 2 or len(Y) < 2:
-                return False
-            topBottom = np.sum(list(map(lambda XX:np.linalg.norm(XX),(np.array(X[:2])-np.array(Y[-2:])))))
-            bottomTop = np.sum(list(map(lambda XX:np.linalg.norm(XX),(np.array(X[-2:])-np.array(Y[:2])))))
-            if topBottom < bottomTop:
-                return True
-            return False
-        self.pointLists = sorted(self.pointLists, key=cmp_to_key(sortComp))
-        return True
-
-    def getInterpolateLine(self):
-        return self.interpolateLine
-    def getRawPoints(self):
-        return self.pointLists
-    def clear(self):
-        self.pointLists = [[]]
-        self.interpolateLine = []
-    def append(self,item):
-        self.pointLists.append(item)
-    def len(self):
-        return len(self.pointLists)
-    def __delitem__(self, key):
-        #self.pointLists.__delattr__(key)
-        del self.pointLists[key]
-    def __getitem__(self, key):
-        if len(self.pointLists) == 0:
-            self.pointLists.append([])
-        return self.pointLists[key]
-    def __setitem__(self, key, value):
-        self.pointLists[key] =  value
-    def __str__(self):
-        return str(self.pointLists)
+        
+    
 
 
 def main():
-    A = interpolateLine([
-        [[220,100],[220,110],[230,110]],
-        [[200,100],[200,110],[210,110]],
-        [[210,110],[215,110],[220,110]],
-    ])
-    A.sortedRawPoints()
-    A.calcInterpolateLine()
-    
-
+    pass
 
 if __name__  == "__main__":
     main()

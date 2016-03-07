@@ -20,6 +20,15 @@ try:
 except AttributeError:
     _fromUtf8 = lambda s: s
 
+# Log output setting.
+# If handler = StreamHandler(), log will output into StandardOutput.
+from logging import getLogger, NullHandler, StreamHandler, DEBUG
+logger = getLogger(__name__)
+handler = NullHandler()
+handler.setLevel(DEBUG)
+logger.setLevel(DEBUG)
+logger.addHandler(handler)
+
 import os
 
 if getattr(sys, 'frozen', False):
@@ -29,7 +38,7 @@ elif __file__:
 
 vs_core = vs.get_core()
 
-print(os.name)
+logger.debug('OS Name: {0}'.format(os.name))
 if os.name == 'nt':
     try:
         if getattr(sys, 'frozen', False):
@@ -44,6 +53,7 @@ if os.name == 'nt':
                     os.path.join(
                         currentDirPath,
                         'dll',
+                        'x64',
                         'VapourSynth',
                         'ffms2.dll'
                         )
@@ -51,7 +61,7 @@ if os.name == 'nt':
     except vs.Error:
         pass
 elif os.name == 'posix':  # FIXME:Linuxだと落ちる．
-    print("Mac!")
+    logger.debug("OS is MacOS")
     for libfile in [os.path.join(currentDirPath, 'lib', 'libffms2.dylib'),
                     r'/usr/local/Cellar/ffms2/2.21/lib/libffms2.dylib']:
         if os.path.isfile(libfile):
@@ -92,6 +102,7 @@ class VideoPlaybackWidget(QtWidgets.QWidget, Ui_VideoPlaybackWidget):
 
         self.currentFrameNo = -1
         self.ret = None
+        self.currentFrame = None
 
         self.playbackTimer = QtCore.QTimer()
         self.playbackTimer.timeout.connect(self.videoPlayback)
@@ -123,9 +134,13 @@ class VideoPlaybackWidget(QtWidgets.QWidget, Ui_VideoPlaybackWidget):
         if filename is not None:
             try:
                 self.ret = vs_core.ffms2.Source(source=filename)
-                #print(self.ret.format)
+
+                # FIXME:Windows版のみ，一部のビデオでリストが返される．
+                if isinstance(self.ret, list):
+                    self.ret = self.ret[0]
+
                 self.ret = vs_core.resize.Lanczos(self.ret, format=vs.RGB24)
-                #print(self.ret.format)
+                logger.debug(self.ret.format)
             except vs.Error:
                 return False
 
@@ -150,7 +165,7 @@ class VideoPlaybackWidget(QtWidgets.QWidget, Ui_VideoPlaybackWidget):
             ret, frame = self.readFrame(0)
             if ret:
                 self.currentFrameNo = 0
-                self.frameChanged.emit(frame, 0)
+                self.setFrame(frame, 0)
                 return True
             else:
                 return False
@@ -219,7 +234,8 @@ class VideoPlaybackWidget(QtWidgets.QWidget, Ui_VideoPlaybackWidget):
 
             if changeSlider and frameNo != self.playbackSlider.value():
                 self.playbackSlider.setValue(frameNo)
-            self.setFrame(frame, frameNo)
+            else:
+                self.setFrame(frame, frameNo)
 
     def getFramePos(self):
         if self.isOpened():
@@ -247,8 +263,18 @@ class VideoPlaybackWidget(QtWidgets.QWidget, Ui_VideoPlaybackWidget):
         else:
             return -1
 
+    def getCurrentFrame(self):
+        return self.currentFrame
+
     def setFrame(self, frame, frameNo):
-        #print(frameNo)
+        logger.debug('Frame No: {0}'.format(frameNo))
+        self.currentFrame = frame
+        second = (frameNo/self.fps)
+        msecond = ((frameNo%self.fps))/self.fps
+        minute = int((second/60.0))
+        second = int((second%60.0))
+        timerString = "%02d:%02d:%02d"%(minute,second,msecond*100)
+        self.timeLabel.setText(timerString)
         self.frameChanged.emit(frame, frameNo)
 
     @pyqtSlot()
@@ -285,18 +311,21 @@ class VideoPlaybackWidget(QtWidgets.QWidget, Ui_VideoPlaybackWidget):
     def videoPlayback(self):
         if self.isOpened():
             nextFrame = self.getNextFramePos()
+            if nextFrame < 0:
+                self.stop()
+                return
             self.playbackSlider.setValue(nextFrame)
 
     @pyqtSlot(int)
     def playbackSliderActionTriggered(self, value):
-        #print('Slider val: {0}'.format(self.playbackSlider.value()))
+        logger.debug('Slider val: {0}'.format(self.playbackSlider.value()))
         if self.isPlaying():
             self.stop()
 
     @pyqtSlot(int)
     def playbackSliderValueChanged(self, value):
         currentValue = self.playbackSlider.value()
-        #print('Slider val: {0}, {1}'.format(currentValue, value))
+        logger.debug('Slider val: {0}, {1}'.format(currentValue, value))
 
         if self.isOpened():
             self.moveToFrame(currentValue, False)
@@ -328,8 +357,9 @@ if __name__ == "__main__":
     widget = VideoPlaybackWidget(MainWindow)
     MainWindow.setCentralWidget(widget)
 
-    widget.frameChanged.connect(print)
-    widget.openVideo("test3.mp4")
+    #widget.frameChanged.connect(print)
+    #widget.openVideo("/Users/ymnk/temp/Dast/2016/01/hoge.avi")
+    widget.openVideo("/Users/ymnk/temp/movie/20150420174319.MPG")
 
     MainWindow.show()
     sys.exit(app.exec_())

@@ -31,25 +31,62 @@
       </property>
       <layout class="QVBoxLayout" name="verticalLayout">
        <item>
+        <widget class="ColorLabelChange_Widget" name="dataFrameWidget" native="true"/>
+       </item>
+       <item>
         <widget class="OverlaidGraphicsView" name="inputGraphicsView">
          <property name="acceptDrops">
           <bool>false</bool>
          </property>
          <property name="verticalScrollBarPolicy">
-          <enum>Qt::ScrollBarAlwaysOff</enum>
+          <enum>Qt::ScrollBarAlwaysOn</enum>
          </property>
          <property name="horizontalScrollBarPolicy">
-          <enum>Qt::ScrollBarAlwaysOff</enum>
+          <enum>Qt::ScrollBarAlwaysOn</enum>
          </property>
          <property name="sizeAdjustPolicy">
           <enum>QAbstractScrollArea::AdjustIgnored</enum>
          </property>
+         <property name="dragMode">
+          <enum>QGraphicsView::ScrollHandDrag</enum>
+         </property>
+         <property name="transformationAnchor">
+          <enum>QGraphicsView::AnchorUnderMouse</enum>
+         </property>
+         <property name="resizeAnchor">
+          <enum>QGraphicsView::AnchorUnderMouse</enum>
+         </property>
         </widget>
        </item>
        <item>
-        <widget class="VideoPlaybackWidget" name="videoPlaybackWidget"/>
+        <widget class="VideoPlaybackWidget" name="videoPlaybackWidget" native="true"/>
        </item>
       </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="optionViewButton">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="minimumSize">
+       <size>
+        <width>16</width>
+        <height>0</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>16</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="text">
+       <string>&lt;</string>
+      </property>
      </widget>
     </item>
     <item>
@@ -65,7 +102,11 @@
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_2">
        <item>
-        <widget class="OverlaidGraphicsView" name="zoomedGraphicsView"/>
+        <widget class="OverlaidGraphicsView" name="zoomedGraphicsView">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+        </widget>
        </item>
        <item>
         <widget class="QWidget" name="gridWidget" native="true">
@@ -184,7 +225,7 @@
      <x>0</x>
      <y>0</y>
      <width>902</width>
-     <height>21</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -218,6 +259,12 @@
    <class>VideoPlaybackWidget</class>
    <extends>QWidget</extends>
    <header>.video_playback_widget</header>
+  </customwidget>
+  <customwidget>
+   <class>ColorLabelChange_Widget</class>
+   <extends>QWidget</extends>
+   <header>.colorlabelchange_widget</header>
+   <container>1</container>
   </customwidget>
  </customwidgets>
  <resources/>

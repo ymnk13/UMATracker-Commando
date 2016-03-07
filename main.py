@@ -25,13 +25,12 @@ from queue import Queue
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsItem, QGraphicsItemGroup, QGraphicsPixmapItem, QGraphicsEllipseItem, QFrame, QFileDialog, QPushButton
 from PyQt5.QtGui import QPixmap, QImage, QPainter, QIcon, QCursor
-from PyQt5.QtCore import QPoint, QPointF, QRectF, QEvent, Qt, QSizeF
+from PyQt5.QtCore import QPoint, QPointF, QRectF, QEvent, Qt
 
 import cv2
 import numpy as np
-import scipy.interpolate as interpolate
 import pandas as pd
-from functools import cmp_to_key
+
 import icon
 
 from lib.python import misc
@@ -39,12 +38,8 @@ from lib.python.ui.ui_main_window_base import Ui_MainWindowBase
 
 # from lib.python.ui.tracking_path import TrackingPath
 from lib.python.ui.tracking_path_group import TrackingPathGroup
-from lib.python.ui.movable_poly_line import MovablePolyLine
-from lib.python.ui.tracking_path import TrackingPath
-from lib.python.ui.movable_arrow import MovableArrow
-from lib.python.ui.resizable_object import ResizableRect, ResizableEllipse
-from lib.python.ui.rotatable_ellipse import RotatableEllipse,RotatableEllipseData
 from lib.python.ui.hand_input_system import HandInputSystem
+
 # Log file setting.
 # import logging
 # logging.basicConfig(filename='MainWindow.log', level=logging.DEBUG)
@@ -59,7 +54,7 @@ logger.setLevel(DEBUG)
 logger.addHandler(handler)
 
 class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
-    def __init__(self, path):
+    def __init__(self):
         super(Ui_MainWindow, self).__init__()
         self.setupUi(self)
 
@@ -68,21 +63,16 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         self.menuInit()
 
         self.df = None
+        self.trackingPathGroup = None
+        self.drawingFlag = False
+        self.handInputSystem = None
         self.handInputSystem = HandInputSystem()
         self.handInputSystem.setRect(self.inputScene.sceneRect())
         self.inputScene.addItem(self.handInputSystem)
-
-        self.trackingPathGroup = None
-        self.colors = []
-
-        self.viewScaleRate = 1.0
-        self.moveSceneRegionFlag = False
-        self.moveSceneRegion = QtCore.QRect(0,0,960,540)        
-        self.frameWidth = 30*5
+        self.handInputSystem.addNewDataFrame()
         self.currentFrameNo = 0
-        self.trackingPath = None
-
-        self.df = pd.DataFrame({"x0":[],"y0":[]})
+            
+        self.colors = []
 
         self.circleCheckBox.stateChanged.connect(self.polyLineCheckBoxStateChanged)
         self.lineCheckBox.stateChanged.connect(self.polyLineCheckBoxStateChanged)
@@ -91,158 +81,33 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
 
         self.frameNoSpinBox.valueChanged.connect(self.frameNoSpinBoxValueChanged)
         self.groupBox_2.hide()
-
-        
-        self.inputGraphicsView.mousePressEvent = self.inputGraphicsViewMousePressEvent
-        self.inputGraphicsView.mouseMoveEvent = self.inputGraphicsViewMouseMoveEvent
-        self.inputGraphicsView.mouseReleaseEvent = self.inputGraphicsViewMouseReleaseEvent
-        
-        self.inputGraphicsView.keyPressEvent = self.inputGraphicsViewKeyPressEvent
-        self.inputGraphicsView.keyReleaseEvent = self.inputGraphicsViewKeyReleaseEvent
-        self.drawing = False
-
         
 
-        """
-        self.RectA = RotatableEllipse(None)
-        self.inputScene.addItem(self.RectA)
-        self.RectA.setPoints([[100,100],[200,150]])
-        self.RectA.setAngle(45*np.pi/180.0,True)
-        self.RectA.hide()
-        self.RectA.show()
-        self.RectA.setPoints([[200,200],[300,250]])
-        """
+        self.inputGraphicsView.viewport().setCursor(QtCore.Qt.ArrowCursor)
+        #
+        self.optionViewButton.pressed.connect(self.optionViewButtonPressed)
+        self.zoomedGraphicsView.hide()
 
-        self.processDropedFile("/Users/ymnk/temp/Dast/2016/01/hoge.avi")
-    def inputGraphicsViewKeyReleaseEvent(self,event):
-        key = event.key()
-        if key == QtCore.Qt.Key_Control:
-            self.moveSceneRegionFlag = False
-
-    def inputGraphicsViewKeyPressEvent(self,event):
-        mousePosition = QCursor().pos()
-        mousePosition = self.inputGraphicsView.mapFromGlobal(mousePosition)
-        mousePosition = self.inputGraphicsView.mapToScene(mousePosition)
-        if event.type() == QtCore.QEvent.KeyPress:
-            key = event.key()
-            if key == QtCore.Qt.Key_Space:
-                self.videoPlaybackWidget.playButtonClicked()
-            elif key == QtCore.Qt.Key_Right:
-                pass
-            elif key == QtCore.Qt.Key_Left:
-                pass
-            elif key == QtCore.Qt.Key_Down:
-                self.viewScaleRate -= 0.01
-                if self.viewScaleRate <= 0:
-                    self.viewScaleRate = 1
-                    self.graphicsViewResized()
-                    return
-                self.setScale(self.viewScaleRate,mousePosition)
-            elif key == QtCore.Qt.Key_Backspace:
-                # Delete Last Line
-                self.handInputSystem.deleteLastInputLine()
-            elif  0 <= key^0x30 <= 9:
-                number = key^0x30
-                print("深度:",number)
-                self.handInputSystem.setDepth(self.currentFrameNo,number)
-            elif key == QtCore.Qt.Key_B:
-                self.videoPlaybackWidget.movePrevButtonClicked()
-            elif key == QtCore.Qt.Key_N:
-                self.videoPlaybackWidget.moveNextButtonClicked()
-            elif key == QtCore.Qt.Key_M:
-                # 座標もかえる
-                self.handInputSystem.saveAngleDataToNextFrame(self.currentFrameNo)
-                self.videoPlaybackWidget.moveNextButtonClicked()
-            elif key == QtCore.Qt.Key_V:
-                # 座標はかえない。
-                self.handInputSystem.saveAngleDataToNextFrame(self.currentFrameNo,False)
-                self.videoPlaybackWidget.moveNextButtonClicked()
-            elif key == QtCore.Qt.Key_E:
-                self.handInputSystem.saveInputedLine(self.currentFrameNo)
-                frameNo = (int(self.currentFrameNo/self.frameWidth)+1)*self.frameWidth
-                self.handInputSystem.setDataFrame(frameNo)
-                self.videoPlaybackWidget.moveToFrame(frameNo)
-
-            elif key == QtCore.Qt.Key_Q:
-                self.handInputSystem.clearTrackingPath()
-                self.handInputSystem.inputedPoints.clear()
-                self.handInputSystem.setDataFrame(self.currentFrameNo)
-                frameNo = ((int(self.currentFrameNo/(self.frameWidth))-1)*self.frameWidth)
-                if frameNo < 0:
-                    frameNo = 0
-                self.handInputSystem.setDataFrame(frameNo)
-                self.videoPlaybackWidget.moveToFrame(frameNo)
-            elif key == QtCore.Qt.Key_C:
-                widthAngleInput = 30
-                frameNo = ((int(self.currentFrameNo/(widthAngleInput))+1)*widthAngleInput)
-                self.handInputSystem.evaluateInputAngle(self.currentFrameNo)
-                self.videoPlaybackWidget.moveToFrame(frameNo)
-            elif key == QtCore.Qt.Key_Z:
-                widthAngleInput = 30
-                frameNo = ((int(self.currentFrameNo/(widthAngleInput))-1)*widthAngleInput)
-                if frameNo < 0:
-                    frameNo = 0
-                self.videoPlaybackWidget.moveToFrame(frameNo)
-            elif key == QtCore.Qt.Key_Up:
-                self.viewScaleRate += 0.01
-                self.setScale(self.viewScaleRate,mousePosition)
-            elif key == QtCore.Qt.Key_R:
-                self.graphicsViewResized()
-            elif key == QtCore.Qt.Key_Control:
-                self.moveSceneRegionFlag = True
-            elif key == QtCore.Qt.Key_A:
-                #self.inputGraphicsView.translate(-10,0)
-                if self.moveSceneRegion.topLeft().x()-10 < 0:
-                    return
-                """
-                self.moveSceneRegion.moveTopLeft(QPoint(self.moveSceneRegion.topLeft().x()-10,
-                                                    self.moveSceneRegion.topLeft().y()))
-                self.moveSceneRegion.moveBottomRight(QPoint(self.moveSceneRegion.bottomRight().x()-10,
-                                                            self.moveSceneRegion.bottomRight().y()))
-                """
-                self.moveSceneRegion.moveTo(QPoint(self.moveSceneRegion.topLeft().x()-10,
-                                                   self.moveSceneRegion.topLeft().y()))
-                self.inputGraphicsView.fitInView(QRectF(self.moveSceneRegion),
-                                                 QtCore.Qt.KeepAspectRatio)
-                #print("A",self.moveSceneRegion.bottomRight(),self.moveSceneRegion,self.moveSceneRegion.bottomRight().x()-10)
-            elif key == QtCore.Qt.Key_D:
-                self.moveSceneRegion.moveTopLeft(QPoint(self.moveSceneRegion.topLeft().x()+10,
-                                                        self.moveSceneRegion.topLeft().y()))
-                self.inputGraphicsView.fitInView(QRectF(self.moveSceneRegion),
-                                                 QtCore.Qt.KeepAspectRatio)
-                #print("D",self.moveSceneRegion)
-            elif key == QtCore.Qt.Key_W:
-                self.moveSceneRegion.moveTopLeft(QPoint(self.moveSceneRegion.topLeft().x(),
-                                                        self.moveSceneRegion.topLeft().y()-10))
-                self.inputGraphicsView.fitInView(QRectF(self.moveSceneRegion),
-                                                 QtCore.Qt.KeepAspectRatio)
-                #print("W",self.moveSceneRegion)
-            elif key == QtCore.Qt.Key_S:
-                self.moveSceneRegion.moveTopLeft(QPoint(self.moveSceneRegion.topLeft().x(),
-                                                        self.moveSceneRegion.topLeft().y()+10))
-                self.inputGraphicsView.fitInView(QRectF(self.moveSceneRegion),
-                                                 QtCore.Qt.KeepAspectRatio)
-                #print("S",self.moveSceneRegion)
-            elif key == QtCore.Qt.Key_P:
-                self.handInputSystem.save("a.csv")
-
-    def setScale(self,viewScaleRate,mousePosition):
-        sceneRect = self.inputGraphicsView.sceneRect()
-        scene = self.inputGraphicsView.scene()
-        sceneRect = scene.sceneRect()
-        posXY = sceneRect.bottomRight()
-        x,y = posXY.x(),posXY.y()
-        wX,wY = int(x/(1.0*viewScaleRate)),int(y/(1.0*viewScaleRate))
-        wX_half,wY_half = int(wX*0.5),int(wY*0.5)
-        mouseX,mouseY = mousePosition.x(),mousePosition.y()
-        viewRect = QtCore.QRect(0,0,wX_half,wY_half)
+        self.dataFrameWidget.dataFrameChanged.connect(self.dataFrameChanged)
+        self.dataFrameWidget.hide()
+        self.handInputSystem.setColor(self.dataFrameWidget.getColor())
         
-        viewRect.moveCenter(QPoint(mouseX,mouseY))
-        self.moveSceneRegion = viewRect
-        self.inputGraphicsView.fitInView(QRectF(viewRect),QtCore.Qt.KeepAspectRatio)
-        self.inputGraphicsView.viewport().update()
-        #self.updateInputGraphicsView()
+        #self.processDropedFile("/Users/ymnk/temp/Dast/2016/01/hoge.avi")
+        #self.processDropedFile("./a.csv")        
+    def dataFrameChanged(self,addedFrameFlag,editingNo,color):
+        if addedFrameFlag:
+            self.handInputSystem.addNewDataFrame()
+        self.handInputSystem.setEditingNo(editingNo)
+        self.handInputSystem.setColor(color)
+        print(addedFrameFlag,color,editingNo)
 
+    def optionViewButtonPressed(self):
+        if self.groupBox_2.isVisible():
+            self.optionViewButton.setText("<")
+            self.groupBox_2.hide()
+        else:
+            self.optionViewButton.setText(">")
+            self.groupBox_2.show()
 
     def overlayCheckBoxStateChanged(self, s):
         if self.overlayCheckBox.isChecked():
@@ -258,22 +123,20 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         min_value = max(self.currentFrameNo-overlayFrameNo,0)
         current_pos = self.currentFrameNo - min_value
 
-        if self.trackingPathGroup is not None:
-            self.trackingPathGroup.setDrawItem(current_pos, self.circleCheckBox.isChecked())
-            self.trackingPathGroup.setDrawLine(self.lineCheckBox.isChecked())
-
+        if self.handInputSystem is not None:
+            self.handInputSystem.setDrawItem(current_pos, self.circleCheckBox.isChecked())
+            self.handInputSystem.setDrawLine(self.lineCheckBox.isChecked())
             self.updateInputGraphicsView()
 
     def radiusSpinBoxValueChanged(self, value):
-        if self.trackingPathGroup is not None:
-            self.trackingPathGroup.setRadius(self.radiusSpinBox.value())
+        if self.handInputSystem is not None:
+            self.handInputSystem.setRadius(self.radiusSpinBox.value())
             self.updateInputGraphicsView()
 
     def frameNoSpinBoxValueChanged(self, value):
-        if self.trackingPathGroup is not None:
-            self.trackingPathGroup.setOverlayFrameNo(self.frameNoSpinBox.value())
+        if self.handInputSystem is not None:
+            self.handInputSystem.setOverlayFrameNo(self.frameNoSpinBox.value())
             self.updateInputGraphicsView()
-
     def dragEnterEvent(self,event):
         event.acceptProposedAction()
 
@@ -306,14 +169,12 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
 
     def setFrame(self, frame, frameNo):
         if frame is not None:
-            if frameNo%(self.frameWidth) == self.frameWidth-1:
-                frameNo = int(frameNo/(self.frameWidth))*self.frameWidth
-                self.videoPlaybackWidget.moveToFrame(frameNo)
-
             self.cv_img = frame
             self.currentFrameNo = frameNo
-            
             self.updateInputGraphicsView()
+            if self.videoInitialFlag == True:
+                 self.graphicsViewResized()
+                 self.videoInitialFlag = False
             self.evaluate()
 
     def imgInit(self):
@@ -336,66 +197,103 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         self.inputPixmapItem = QGraphicsPixmapItem(self.inputPixmap)
         self.inputScene.addItem(self.inputPixmapItem)
 
+        self.inputGraphicsView.mousePressEvent = self.inputGraphicsViewMousePressEvent
+        self.inputGraphicsView.mouseMoveEvent = self.inputGraphicsViewMouseMoveEvent
+        self.inputGraphicsView.mouseReleaseEvent = self.inputGraphicsViewMouseReleaseEvent
+        self.inputGraphicsView.keyPressEvent = self.inputGraphicsViewKeyPressEvent
+        self.inputGraphicsView.keyReleaseEvent = self.inputGraphicsViewKeyReleaseEvent
+        self.inputGraphicsView.wheelEvent = self.inputGraphicsViewwheelEvent
+        #self.inputGraphicsView.focusInEvent = self.inputGraphicsViewfocusInEvent
         self.inputGraphicsView.viewport().installEventFilter(self)
 
-        self.inputGraphicsView.setMouseTracking(False)
+        self.inputGraphicsView.setMouseTracking(True)
         self.overlayScene = QGraphicsScene()
         self.inputGraphicsView.setOverlayScene(self.overlayScene)
-
-        self.zoomedGraphicsView.setScene(self.inputScene)
-        self.zoomedGraphicsView.setOverlayScene(self.overlayScene)
-
-
+    def inputGraphicsViewfocusInEvent(self,event):
+        #
+        QGraphicsView.focusInEvent(self.inputGraphicsView, event)
     def inputGraphicsViewMousePressEvent(self, event):
         if event.modifiers() == QtCore.Qt.ShiftModifier:
             # Comment out to permit the view for sending the event to the child scene.
             QGraphicsView.mousePressEvent(self.inputGraphicsView, event)
         else:
-            if event.button() & QtCore.Qt.RightButton:
-                self.drawing = False
-            else:
-                self.drawing = True
-
-        
-
-
+            self.drawingFlag = True
+            if not self.videoPlaybackWidget.isPlaying():
+                self.videoPlaybackWidget.playButtonClicked()
+            
     def inputGraphicsViewMouseMoveEvent(self, event):
         if event.modifiers() == QtCore.Qt.ShiftModifier:
             # Comment out to permit the view for sending the event to the child scene.
             QGraphicsView.mouseMoveEvent(self.inputGraphicsView, event)
-            return
-        
-        if self.drawing == False:
-            return
-        if self.moveSceneRegionFlag == True:
-            print("MoveRegion")
-            mousePosition = self.inputGraphicsView.mapToScene(QPoint(event.pos()))
-            self.inputGraphicsView.translate(1,0)
-
-            return
-        else:
+        elif self.drawingFlag == True:
             pass
-
-        pos = self.inputGraphicsView.mapToScene(QPoint(event.pos()))
-        A = np.array([pos.x(),pos.y()])
-        mousePosition = A
-        self.handInputSystem.inputMouseMoveEvent(mousePosition)
+            #self.videoPlaybackWidget.moveNextButtonClicked()
+        #self.handInputSystem.inputMouseMoveEvent(mousePosition,self.currentFrameNo)
+        #print(self.currentFrameNo)
+        #self.positionStack.append(mousePosition)
+        #self.handInputSystem.inputMouseMoveEvent(mousePosition)
         
-
     def inputGraphicsViewMouseReleaseEvent(self, event):
-        if event.modifiers() == QtCore.Qt.ShiftModifier:
-            # Comment out to permit the view for sending the event to the child scene.
-            QGraphicsView.mouseReleaseEvent(self.inputGraphicsView, event)
-            return
-        
-        if self.drawing == True:
-            self.drawing = False
-        else:
-            return
-        if self.moveSceneRegionFlag == True:
-            self.moveSceneRegionFlag = False
+        if self.drawingFlag == True:
+            self.drawingFlag = False
+            self.videoPlaybackWidget.playButtonClicked()
         self.handInputSystem.inputMouseReleaseEvent()
-        self.inputGraphicsView.viewport().update()
+        self.handInputSystem.setPoints()
+        # Comment out to permit the view for sending the event to the child scene.
+        QGraphicsView.mouseReleaseEvent(self.inputGraphicsView, event)
+        self.inputGraphicsView.viewport().setCursor(QtCore.Qt.ArrowCursor)
+        
+    def inputGraphicsViewKeyPressEvent(self,event):
+        mousePosition = QCursor().pos()
+        mousePosition = self.inputGraphicsView.mapFromGlobal(mousePosition)
+        if event.type() == QtCore.QEvent.KeyPress:
+            key = event.key()
+            if key == QtCore.Qt.Key_Space:
+                self.videoPlaybackWidget.playButtonClicked()
+            elif key == QtCore.Qt.Key_A:
+                self.videoPlaybackWidget.movePrevButtonClicked()
+            elif key == QtCore.Qt.Key_D:
+                self.videoPlaybackWidget.moveNextButtonClicked()
+            elif key == QtCore.Qt.Key_Down:
+                self.inputGraphicsViewScaleDown()
+            elif key == QtCore.Qt.Key_Up:
+                self.inputGraphicsViewScaleUp()
+                pass
+            elif key == QtCore.Qt.Key_R:
+                self.graphicsViewResized()
+            elif key == QtCore.Qt.Key_P:
+                pass
+                #self.handInputSystem.nextDataFrame()
+            elif key == QtCore.Qt.Key_O:
+                pass
+                #self.handInputSystem.previousDataFrame()
+            elif key == QtCore.Qt.Key_J:
+                frameNo = self.handInputSystem.getLastInputedFrameIndex()
+                self.videoPlaybackWidget.moveToFrame(frameNo)
+            elif key == QtCore.Qt.Key_S:
+                self.handInputSystem.saveCSV("./a.csv")
+        QGraphicsView.keyPressEvent(self.inputGraphicsView, event)
+        
+    def inputGraphicsViewKeyReleaseEvent(self,event):
+        
+        QGraphicsView.keyReleaseEvent(self.inputGraphicsView, event)
+        
+    def inputGraphicsViewwheelEvent(self,event):
+        scaleFactor = 1.15
+        if event.delta() > 0:
+            # Zoom in
+            self.inputGraphicsView.scale(scaleFactor, scaleFactor)
+        else:
+            # Zooming out
+            self.inputGraphicsView.scale(1.0 / scaleFactor, 1.0 / scaleFactor)
+        QGraphicsView.wheelEvent(self.inputGraphicsView, event)
+
+    def inputGraphicsViewScaleDown(self):
+        scaleFactor = 1.15
+        self.inputGraphicsView.scale(1.0 / scaleFactor, 1.0 / scaleFactor)
+    def inputGraphicsViewScaleUp(self):
+        scaleFactor = 1.15
+        self.inputGraphicsView.scale(scaleFactor, scaleFactor)
         
     def menuInit(self):
         self.actionSaveCSVFile.triggered.connect(self.saveCSVFile)
@@ -411,12 +309,9 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
             ret = self.videoPlaybackWidget.openVideo(filePath)
             if ret == False:
                 return False
-
+            self.videoInitialFlag = True
             self.videoPlaybackWidget.show()
-            self.updateInputGraphicsView()
-
-            self.evaluate()
-
+            self.dataFrameWidget.show()
             # self.evaluate()
 
             return True
@@ -449,29 +344,36 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
 
         if len(filePath) is not 0:
             self.df = pd.read_csv(filePath, index_col=0)
+            if self.handInputSystem is not None:
+                self.inputScene.removeItem(self.handInputSystem)
+            self.handInputSystem = HandInputSystem()
+            self.handInputSystem.setRect(self.inputScene.sceneRect())
+            self.inputScene.addItem(self.handInputSystem)
+            self.handInputSystem.setDataFrame(self.df)
+            self.handInputSystem.setPoints()
 
-            if self.trackingPathGroup is not None:
-                self.inputScene.removeItem(self.trackingPathGroup)
-
-            self.trackingPathGroup = TrackingPathGroup()
-            self.trackingPathGroup.setRect(self.inputScene.sceneRect())
-            #self.inputScene.addItem(self.trackingPathGroup)
-
-            self.trackingPathGroup.setDataFrame(self.df)
+            self.dataFrameWidget.clear()
+            self.dataFrameWidget.dataFrameNo = self.handInputSystem.dataFrameNo
+            self.dataFrameWidget.editingNo = 0
+            for item in range(self.handInputSystem.dataFrameNo+1):
+                color = self.handInputSystem.itemList[item].getColor()
+                print(item,color)
+                self.dataFrameWidget.colorList.append(color)
+            self.dataFrameWidget.setUniqueIDLabel()
 
             self.evaluate()
 
     def saveCSVFile(self, activated=False, filePath = None):
-        if self.df is not None:
+        #if self.df is not None:
+        if self.handInputSystem.isDataFrame():
             filePath, _ = QFileDialog.getSaveFileName(None, 'Save CSV File', userDir, "CSV files (*.csv)")
 
             if len(filePath) is not 0:
                 logger.debug("Saving CSV file: {0}".format(filePath))
-                self.handInputSystem.save(filePath)
-                #self.handInputSystem.save("./a.csv")
+                self.handInputSystem.saveCSV(filePath)
 
     def updateInputGraphicsView(self):
-        ##print("update")
+        # print("update")
         # self.inputScene.clear()
         self.inputScene.removeItem(self.inputPixmapItem)
         qimg = misc.cvMatToQImage(self.cv_img)
@@ -487,9 +389,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         self.inputScene.addItem(self.inputPixmapItem)
 
         self.inputGraphicsView.viewport().update()
-        #self.graphicsViewResized()
-
-        
+        # self.graphicsViewResized()
 
     def eventFilter(self, obj, event):
         if obj is self.inputGraphicsView.viewport() and event.type()==QEvent.Wheel:
@@ -498,10 +398,9 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
             return False
 
     def graphicsViewResized(self, event=None):
-        #print("resize")
-        #print(self.inputScene)
+        # print("resize")
+        # print(self.inputScene)
         self.inputGraphicsView.fitInView(QtCore.QRectF(self.inputPixmap.rect()), QtCore.Qt.KeepAspectRatio)
-        self.moveSceneRegion = QtCore.QRectF(self.inputPixmap.rect())
 
     def evaluate(self):
         if not self.videoPlaybackWidget.isOpened():
@@ -516,20 +415,27 @@ class Ui_MainWindow(QtWidgets.QMainWindow, Ui_MainWindowBase):
         if self.frameBuffer.qsize() > 10:
             item = self.frameBuffer.get()
             self.frameBufferItemGroup.removeFromGroup(item)
-
+        """
         if self.trackingPathGroup is not None:
             self.trackingPathGroup.setPoints(self.currentFrameNo)
-        if self.handInputSystem is not None:
-            pass
-            self.handInputSystem.setPoint(self.currentFrameNo)
+        """
 
-        #if self.ellipseItem is not None:
-        #scene = self.inputScene
-        #self.ellipseItem.setRect(scene.sceneRect())
+        if self.handInputSystem is not None:
+            self.handInputSystem.setPoints(self.currentFrameNo)
+            if self.drawingFlag is True:
+                mousePosition = QCursor().pos()
+                mousePosition = self.inputGraphicsView.mapFromGlobal(mousePosition)
+                mousePosition = self.inputGraphicsView.mapToScene(mousePosition)
+                pos = [mousePosition.x(),mousePosition.y()]
+                self.handInputSystem.appendPosition(pos,self.currentFrameNo)
+        
+
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
-    MainWindow = Ui_MainWindow(currentDirPath)
+    MainWindow = Ui_MainWindow()
     MainWindow.setWindowIcon(QIcon(':/icon/icon.ico'))
+    MainWindow.setWindowTitle('UMATracker-commando')
     MainWindow.show()
     sys.exit(app.exec_())
+

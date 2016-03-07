@@ -57,6 +57,8 @@ class MovablePolyLine(QGraphicsObject):
         for item in self.itemList:
             item.setBrush(self.color)
 
+    def getColor(self):
+        return [self.color.red(),self.color.green(),self.color.blue()]
     def getRadius(self):
         return self.radius
 
@@ -129,7 +131,7 @@ class MovablePolyLine(QGraphicsObject):
             painter.save()
 
             pen = QPen(self.color)
-            pen.setWidth(1)
+            pen.setWidth(self.getLineWidth())
 
             painter.setPen(pen)
             qPoints = [QPointF(*p.tolist()) for p in self.points]

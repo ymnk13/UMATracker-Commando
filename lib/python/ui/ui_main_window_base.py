@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file '.\ui_main_window_base.ui'
+# Form implementation generated from reading ui file 'ui_main_window_base.ui'
 #
-# Created by: PyQt5 UI code generator 5.5
+# Created by: PyQt5 UI code generator 5.4.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -26,17 +26,33 @@ class Ui_MainWindowBase(object):
         self.groupBox.setObjectName("groupBox")
         self.verticalLayout = QtWidgets.QVBoxLayout(self.groupBox)
         self.verticalLayout.setObjectName("verticalLayout")
+        self.dataFrameWidget = ColorLabelChange_Widget(self.groupBox)
+        self.dataFrameWidget.setObjectName("dataFrameWidget")
+        self.verticalLayout.addWidget(self.dataFrameWidget)
         self.inputGraphicsView = OverlaidGraphicsView(self.groupBox)
         self.inputGraphicsView.setAcceptDrops(False)
-        self.inputGraphicsView.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.inputGraphicsView.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.inputGraphicsView.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        self.inputGraphicsView.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
         self.inputGraphicsView.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustIgnored)
+        self.inputGraphicsView.setDragMode(QtWidgets.QGraphicsView.ScrollHandDrag)
+        self.inputGraphicsView.setTransformationAnchor(QtWidgets.QGraphicsView.AnchorUnderMouse)
+        self.inputGraphicsView.setResizeAnchor(QtWidgets.QGraphicsView.AnchorUnderMouse)
         self.inputGraphicsView.setObjectName("inputGraphicsView")
         self.verticalLayout.addWidget(self.inputGraphicsView)
         self.videoPlaybackWidget = VideoPlaybackWidget(self.groupBox)
         self.videoPlaybackWidget.setObjectName("videoPlaybackWidget")
         self.verticalLayout.addWidget(self.videoPlaybackWidget)
         self.horizontalLayout.addWidget(self.groupBox)
+        self.optionViewButton = QtWidgets.QPushButton(self.centralwidget)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.optionViewButton.sizePolicy().hasHeightForWidth())
+        self.optionViewButton.setSizePolicy(sizePolicy)
+        self.optionViewButton.setMinimumSize(QtCore.QSize(16, 0))
+        self.optionViewButton.setMaximumSize(QtCore.QSize(16, 16777215))
+        self.optionViewButton.setObjectName("optionViewButton")
+        self.horizontalLayout.addWidget(self.optionViewButton)
         self.groupBox_2 = QtWidgets.QGroupBox(self.centralwidget)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(1)
@@ -47,6 +63,7 @@ class Ui_MainWindowBase(object):
         self.verticalLayout_2 = QtWidgets.QVBoxLayout(self.groupBox_2)
         self.verticalLayout_2.setObjectName("verticalLayout_2")
         self.zoomedGraphicsView = OverlaidGraphicsView(self.groupBox_2)
+        self.zoomedGraphicsView.setEnabled(False)
         self.zoomedGraphicsView.setObjectName("zoomedGraphicsView")
         self.verticalLayout_2.addWidget(self.zoomedGraphicsView)
         self.gridWidget = QtWidgets.QWidget(self.groupBox_2)
@@ -110,7 +127,7 @@ class Ui_MainWindowBase(object):
         self.horizontalLayout.addWidget(self.groupBox_2)
         MainWindowBase.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindowBase)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 902, 21))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 902, 22))
         self.menubar.setObjectName("menubar")
         self.menuFile = QtWidgets.QMenu(self.menubar)
         self.menuFile.setObjectName("menuFile")
@@ -133,6 +150,7 @@ class Ui_MainWindowBase(object):
         _translate = QtCore.QCoreApplication.translate
         MainWindowBase.setWindowTitle(_translate("MainWindowBase", "MainWindow"))
         self.groupBox.setTitle(_translate("MainWindowBase", "Tracking"))
+        self.optionViewButton.setText(_translate("MainWindowBase", "<"))
         self.groupBox_2.setTitle(_translate("MainWindowBase", "Zoom"))
         self.label_2.setText(_translate("MainWindowBase", "# of frames:"))
         self.overlayCheckBox.setText(_translate("MainWindowBase", "Overlay"))
@@ -143,5 +161,6 @@ class Ui_MainWindowBase(object):
         self.actionOpenCSVFile.setText(_translate("MainWindowBase", "Open CSV File"))
         self.actionSaveCSVFile.setText(_translate("MainWindowBase", "Save CSV FIle"))
 
+from .color_select_widget import ColorLabelChange_Widget
 from .overlaid_graphics_view import OverlaidGraphicsView
 from .video_playback_widget import VideoPlaybackWidget

@@ -34,7 +34,7 @@ class TrackingPathGroup(QGraphicsObject):
         self.df.columns = pd.MultiIndex.from_tuples(tuple(zip(*index)))
 
         self.colors = np.random.randint(0, 255, (shape[1]/2, 3)).tolist()
-
+        
         scene = self.scene()
         if scene is not None:
             for item in self.itemList:
